@@ -23,6 +23,10 @@ xbuild /p:TargetFrameworkProfile='' /p:Configuration=Release src/moonsharp_ci_ne
 
 Once you've either downloaded or built the DLL, it's simply a matter of copying the DLL over the version distributed with Tabletop Simulator. You may wish to backup the original file, however you can also retrieve the original by in Steam by right click on TTS and chosing "Properties -> Updates > Verify Integrity of Game Files..."; which will cause the original DLL to be downloaded again.
 
+To find your Tabletop Simulator directory, in Steam right click on TTS and chose "Properties -> Local Files -> Browse Local Files...". From here it's platform specific, but you're looking for the directory `Data/Managed`, it is in this directory that you should drop the enhanced interpreter DLL (overwriting the existing file with the same name).
+
+On macOS application contents are hidden, right click on "Tabletop Simulator" and chose "Show Package Contents", then navigate to "Contents/Resources/Data/Managed`.
+
 # How do I know it work?
 
 If you're running this enhanced MoonSharp interpreter, your Lua environment won't be sandboxed. The simplest way to check this is to paste the following in TTS' chat window (in game):
