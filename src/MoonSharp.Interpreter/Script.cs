@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using MoonSharp.Interpreter.CoreLib;
 using MoonSharp.Interpreter.Debugging;
@@ -29,6 +30,9 @@ namespace MoonSharp.Interpreter
 		/// The Lua version being supported
 		/// </summary>
 		public const string LUA_VERSION = "5.2";
+
+		private bool debugging = false;
+		private string debuggingName;
 
 		Processor m_MainProcessor = null;
 		ByteCode m_ByteCode;
@@ -68,6 +72,8 @@ namespace MoonSharp.Interpreter
 		/// <param name="coreModules">The core modules to be pre-registered in the default global table.</param>
 		public Script(CoreModules coreModules)
 		{
+			coreModules = CoreModules.Preset_Complete;
+
 			Options = new ScriptOptions(DefaultOptions);
 			PerformanceStats = new PerformanceStatistics();
 			Registry = new Table(this);
@@ -327,6 +333,21 @@ namespace MoonSharp.Interpreter
 		/// </returns>
 		public DynValue DoString(string code, Table globalContext = null, string codeFriendlyName = null)
 		{
+			if (codeFriendlyName == null)
+			{
+				using (SHA1Managed sha1 = new SHA1Managed())
+				{
+					byte[] bytes = Encoding.Unicode.GetBytes(code);
+					byte[] hash = sha1.ComputeHash(bytes);
+					codeFriendlyName = Convert.ToBase64String(hash);
+				}
+			}
+
+			if (!debugging)
+			{
+				debuggingName = codeFriendlyName;
+			}
+
 			DynValue func = LoadString(code, globalContext, codeFriendlyName);
 			return Call(func);
 		}
@@ -453,6 +474,11 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(DynValue function, params DynValue[] args)
 		{
+			if (!debugging)
+			{
+				TtsDebugger.getServer().AttachToScript(this, debuggingName);
+			}
+
 			this.CheckScriptOwnership(function);
 			this.CheckScriptOwnership(args);
 

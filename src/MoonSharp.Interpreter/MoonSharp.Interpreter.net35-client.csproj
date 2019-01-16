@@ -117,6 +117,17 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\AsyncDebugger.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\EmptyDebugSession.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\IAsyncDebuggerClient.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\MoonSharpDebugSession.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\VariableInspector.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\MoonSharpVsCodeDebugServer.cs">
+      <Link>MoonSharpVsCodeDebugServer.cs</Link>
+    </Compile>
+    <Compile Include="..\MoonSharp.VsCodeDebugger\SDK\DebugSession.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\SDK\Protocol.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\SDK\Utilities.cs" />
     <Compile Include="AsyncExtensions.cs" />
     <Compile Include="CodeAnalysis\AstNode.cs" />
     <Compile Include="Compatibility\Framework.cs" />
@@ -388,6 +399,7 @@
     <Compile Include="Tree\Expressions\TableConstructor.cs" />
     <Compile Include="Tree\Statements\ScopeBlockStatement.cs" />
     <Compile Include="Tree\Statements\WhileStatement.cs" />
+    <Compile Include="TtsDebugger.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
