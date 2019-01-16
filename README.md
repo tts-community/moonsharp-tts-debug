@@ -25,7 +25,7 @@ Once you've either downloaded or built the DLL, it's simply a matter of copying 
 
 To find your Tabletop Simulator directory, in Steam right click on TTS and chose "Properties -> Local Files -> Browse Local Files...". From here it's platform specific, but you're looking for the directory `Data/Managed`, it is in this directory that you should drop the enhanced interpreter DLL (overwriting the existing file with the same name).
 
-On macOS application contents are hidden, right click on "Tabletop Simulator" and chose "Show Package Contents", then navigate to "Contents/Resources/Data/Managed`.
+On macOS application contents are hidden, right click on "Tabletop Simulator" and chose "Show Package Contents", then navigate to `Contents/Resources/Data/Managed`.
 
 # How do I know it worked?
 
@@ -51,7 +51,7 @@ Unfortunately, the setup process is a bit clunky.
 
   Technically, you can open any directoy you chose, but if you want to do code editing in VSCode then you should have a dedicated directory somewhere.
 
- __Note__: *Please* don't only store your code in a TTS mod. Your scripts and UI should be nothing more than a single `#include file` or `<Include src="file"/>
+ __Note__: *Please* don't only store your code in a TTS mod. Your scripts and UI should be nothing more than a single `#include file` or ```<Include src="file"/>```
 
 4. In the chosen directory, create a new file called `launch.json` and paste the following:
 
