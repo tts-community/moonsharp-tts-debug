@@ -1,6 +1,6 @@
 # Tabletop Simulator Enhanced MoonSharp (with Debugging)
 
-This is a fork of [MoonSharp (the Lua interpreter)](https://www.moonsharp.org/) the Lua interpreter utilised by Tabletop Simulator (and many other games) that has been modified to improve the Tabletop Simulator mod development experience.
+This is a fork of [MoonSharp](https://www.moonsharp.org/) the Lua interpreter utilised by Tabletop Simulator (and many other games) that has been modified to improve the Tabletop Simulator mod development experience.
 
 # Why?
 
