@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
+using System.Reflection;
 using System.Text;
 using MoonSharp.Interpreter.CoreLib;
 using MoonSharp.Interpreter.Debugging;
@@ -32,7 +33,7 @@ namespace MoonSharp.Interpreter
 		public const string LUA_VERSION = "5.2";
 
 		private bool debugging = false;
-		private string debuggingName;
+		private Type luaScriptType;
 
 		Processor m_MainProcessor = null;
 		ByteCode m_ByteCode;
@@ -331,25 +332,29 @@ namespace MoonSharp.Interpreter
 		/// <returns>
 		/// A DynValue containing the result of the processing of the loaded chunk.
 		/// </returns>
-		public DynValue DoString(string code, Table globalContext = null, string codeFriendlyName = null)
+		public DynValue DoString(string code, Table globalContext, string codeFriendlyName)
 		{
-			if (codeFriendlyName == null)
-			{
-				using (SHA1Managed sha1 = new SHA1Managed())
-				{
-					byte[] bytes = Encoding.Unicode.GetBytes(code);
-					byte[] hash = sha1.ComputeHash(bytes);
-					codeFriendlyName = Convert.ToBase64String(hash);
-				}
-			}
-
-			if (!debugging)
-			{
-				debuggingName = codeFriendlyName;
-			}
-
 			DynValue func = LoadString(code, globalContext, codeFriendlyName);
 			return Call(func);
+		}
+
+		public DynValue DoString(string code, Table globalContext = null)
+		{
+			if (luaScriptType == null)
+			{
+				MethodBase callerMethod = new StackTrace().GetFrame(1).GetMethod();
+				luaScriptType = callerMethod.ReflectedType;
+			}
+
+			string codeFriendlyName = null;
+			string scriptName = TtsDebugger.GetScriptName(luaScriptType, this);
+
+			if (scriptName != null)
+			{
+				codeFriendlyName = scriptName.Replace(' ', '_') + "_chunk_" + m_Sources.Count.ToString();
+			}
+
+			return DoString(code, globalContext, codeFriendlyName);
 		}
 
 
@@ -476,7 +481,8 @@ namespace MoonSharp.Interpreter
 		{
 			if (!debugging)
 			{
-				TtsDebugger.getServer().AttachToScript(this, debuggingName);
+				debugging = true;
+				TtsDebugger.GetServer().AttachToScript(this, TtsDebugger.GetScriptName(luaScriptType, this));
 			}
 
 			this.CheckScriptOwnership(function);
