@@ -47,6 +47,8 @@ Unfortunately, the setup process is a bit clunky.
 
 2. Download and install the official [MoonSharp Debugging plugin](https://marketplace.visualstudio.com/items?itemName=xanathar.moonsharp-debug).
 
+2a. You _probably_ also want [EmmyLua](https://marketplace.visualstudio.com/items?itemName=tangzx.emmylua) and to configure the [".ttslua" extension to be treated as "lua"](https://stackoverflow.com/questions/29973619/how-to-make-vs-code-to-treat-other-file-extensions-as-certain-language) files.
+
 3. Launch VSCode and open (File -> Open) the directory where you keep all your Lua code.
 
   Technically, you can open any directoy you chose, but if you want to do code editing in VSCode then you should have a dedicated directory somewhere.
