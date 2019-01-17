@@ -2,7 +2,7 @@
 
 This is a fork of [MoonSharp](https://www.moonsharp.org/) the Lua interpreter utilised by Tabletop Simulator (and many other games) that has been modified to improve the Tabletop Simulator mod development experience.
 
-![Demo](https://benjamin-dobell.github.io/moonsharp/demo.gif)
+![Demo](https://tts-community.github.io/moonsharp/demo.gif)
 
 # Why?
 
