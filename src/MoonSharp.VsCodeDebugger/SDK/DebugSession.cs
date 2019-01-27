@@ -28,7 +28,6 @@ SOFTWARE.
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.IO;
 using MoonSharp.Interpreter;
 
 namespace MoonSharp.VsCodeDebugger.SDK
@@ -37,11 +36,11 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class Message
 	{
-		public int id { get; private set; }
-		public string format { get; private set; }
-		public object variables { get; private set; }
-		public object showUser { get; private set; }
-		public object sendTelemetry { get; private set; }
+		public int id { get; }
+		public string format { get; }
+		public object variables { get; }
+		public object showUser { get; }
+		public object sendTelemetry { get; }
 
 		public Message(int id, string format, object variables = null, bool user = true, bool telemetry = false)
 		{
@@ -55,32 +54,44 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class StackFrame
 	{
-		public int id { get; private set; }
-		public Source source { get; private set; }
-		public int line { get; private set; }
-		public int column { get; private set; }
-		public string name { get; private set; }
+		public const string HINT_NORMAL = "normal";
+		public const string HINT_LABEL = "label";
+		public const string HINT_SUBTLE = "subtle";
 
-		public int? endLine { get; private set; }
-		public int? endColumn { get; private set; }
+		public int id { get; }
+		public Source source { get; }
+		public int line { get; }
+		public int column { get; }
+		public string name { get; }
 
-		public StackFrame(int id, string name, Source source, int line, int column = 0, int? endLine = null, int? endColumn = null)
+		public int? endLine { get; }
+
+		public int? endColumn { get; }
+
+		public string presentationHint { get; }
+
+		public StackFrame(int id, string name, Source source, int line, int column = 0, int? endLine = null, int? endColumn = null, string hint = HINT_LABEL)
 		{
 			this.id = id;
 			this.name = name;
 			this.source = source;
-			this.line = line;
-			this.column = column;
+
+			// These should NEVER be negative
+			this.line = Math.Max(0, line);
+			this.column = Math.Max(0, column);
+
 			this.endLine = endLine;
 			this.endColumn = endColumn;
+
+			this.presentationHint = hint;
 		}
 	}
 
 	public class Scope
 	{
-		public string name { get; private set; }
-		public int variablesReference { get; private set; }
-		public bool expensive { get; private set; }
+		public string name { get; }
+		public int variablesReference { get; }
+		public bool expensive { get; }
 
 		public Scope(string name, int variablesReference, bool expensive = false)
 		{
@@ -92,22 +103,24 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class Variable
 	{
-		public string name { get; private set; }
-		public string value { get; private set; }
-		public int variablesReference { get; private set; }
+		public string name { get; }
+		public string value { get; }
+		public string type { get; }
+		public int variablesReference { get; }
 
-		public Variable(string name, string value, int variablesReference = 0)
+		public Variable(string name, string value, string type, int variablesReference = 0)
 		{
 			this.name = name;
 			this.value = value;
+			this.type = type;
 			this.variablesReference = variablesReference;
 		}
 	}
 
 	public class Thread
 	{
-		public int id { get; private set; }
-		public string name { get; private set; }
+		public int id { get; }
+		public string name { get; }
 
 		public Thread(int id, string name)
 		{
@@ -125,29 +138,28 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class Source
 	{
-		public string name { get; private set; }
-		public string path { get; private set; }
-		public int sourceReference { get; private set; }
+		public const string HINT_NORMAL = "normal";
+		public const string HINT_EMPHASIZE = "emphasize";
+		public const string HINT_DEEMPHASIZE = "deemphasize";
 
-		public Source(string name, string path, int sourceReference = 0)
+		public string name { get; }
+		public string path { get; }
+		public int sourceReference { get; }
+		public string presentationHint { get; }
+
+		public Source(string name, string path, int sourceReference, string hint = HINT_NORMAL)
 		{
 			this.name = name;
 			this.path = path;
 			this.sourceReference = sourceReference;
-		}
-
-		public Source(string path, int sourceReference = 0)
-		{
-			this.name = Path.GetFileName(path);
-			this.path = path;
-			this.sourceReference = sourceReference;
+			this.presentationHint = hint;
 		}
 	}
 
 	public class Breakpoint
 	{
-		public bool verified { get; private set; }
-		public int line { get; private set; }
+		public bool verified { get; }
+		public int line { get; }
 
 		public Breakpoint(bool verified, int line)
 		{
@@ -161,7 +173,9 @@ namespace MoonSharp.VsCodeDebugger.SDK
 	public class InitializedEvent : Event
 	{
 		public InitializedEvent()
-			: base("initialized") { }
+			: base("initialized")
+		{
+		}
 	}
 
 	public class StoppedEvent : Event
@@ -173,19 +187,24 @@ namespace MoonSharp.VsCodeDebugger.SDK
 				reason = reasn,
 				text = txt
 			})
-		{ }
+		{
+		}
 	}
 
 	public class ExitedEvent : Event
 	{
 		public ExitedEvent(int exCode)
-			: base("exited", new { exitCode = exCode }) { }
+			: base("exited", new { exitCode = exCode })
+		{
+		}
 	}
 
 	public class TerminatedEvent : Event
 	{
 		public TerminatedEvent()
-			: base("terminated") { }
+			: base("terminated")
+		{
+		}
 	}
 
 	public class ThreadEvent : Event
@@ -196,7 +215,8 @@ namespace MoonSharp.VsCodeDebugger.SDK
 				reason = reasn,
 				threadId = tid
 			})
-		{ }
+		{
+		}
 	}
 
 	public class OutputEvent : Event
@@ -207,14 +227,14 @@ namespace MoonSharp.VsCodeDebugger.SDK
 				category = cat,
 				output = outpt
 			})
-		{ }
+		{
+		}
 	}
 
 	// ---- Response -------------------------------------------------------------------------
 
 	public class Capabilities : ResponseBody
 	{
-
 		public bool supportsConfigurationDoneRequest;
 		public bool supportsFunctionBreakpoints;
 		public bool supportsConditionalBreakpoints;
@@ -224,8 +244,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class ErrorResponseBody : ResponseBody
 	{
-
-		public Message error { get; private set; }
+		public Message error { get; }
 
 		public ErrorResponseBody(Message error)
 		{
@@ -235,61 +254,51 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class StackTraceResponseBody : ResponseBody
 	{
-		public StackFrame[] stackFrames { get; private set; }
+		public StackFrame[] stackFrames { get; }
+		public int totalFrames { get; }
 
-		public StackTraceResponseBody(List<StackFrame> frames = null)
+		public StackTraceResponseBody(List<StackFrame> frames, int total)
 		{
-			if (frames == null)
-				stackFrames = new StackFrame[0];
-			else
-				stackFrames = frames.ToArray<StackFrame>();
+			stackFrames = frames.ToArray<StackFrame>();
+			totalFrames = total;
 		}
 	}
 
 	public class ScopesResponseBody : ResponseBody
 	{
-		public Scope[] scopes { get; private set; }
+		public Scope[] scopes { get; }
 
-		public ScopesResponseBody(List<Scope> scps = null)
+		public ScopesResponseBody(List<Scope> scps)
 		{
-			if (scps == null)
-				scopes = new Scope[0];
-			else
-				scopes = scps.ToArray<Scope>();
+			scopes = scps.ToArray<Scope>();
 		}
 	}
 
 	public class VariablesResponseBody : ResponseBody
 	{
-		public Variable[] variables { get; private set; }
+		public Variable[] variables { get; }
 
-		public VariablesResponseBody(List<Variable> vars = null)
+		public VariablesResponseBody(List<Variable> vars)
 		{
-			if (vars == null)
-				variables = new Variable[0];
-			else
-				variables = vars.ToArray<Variable>();
+			variables = vars.ToArray<Variable>();
 		}
 	}
 
 	public class ThreadsResponseBody : ResponseBody
 	{
-		public Thread[] threads { get; private set; }
+		public Thread[] threads { get; }
 
-		public ThreadsResponseBody(List<Thread> vars = null)
+		public ThreadsResponseBody(List<Thread> ths)
 		{
-			if (vars == null)
-				threads = new Thread[0];
-			else
-				threads = vars.ToArray<Thread>();
+			threads = ths.ToArray<Thread>();
 		}
 	}
 
 	public class EvaluateResponseBody : ResponseBody
 	{
-		public string result { get; private set; }
+		public string result { get; }
 		public string type { get; set;  }
-		public int variablesReference { get; private set; }
+		public int variablesReference { get; }
 
 		public EvaluateResponseBody(string value, int reff = 0)
 		{
@@ -300,7 +309,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class SetBreakpointsResponseBody : ResponseBody
 	{
-		public Breakpoint[] breakpoints { get; private set; }
+		public Breakpoint[] breakpoints { get; }
 
 		public SetBreakpointsResponseBody(List<Breakpoint> bpts = null)
 		{
@@ -315,16 +324,12 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public abstract class DebugSession : ProtocolServer
 	{
-		private bool _debuggerLinesStartAt1;
-		private bool _debuggerPathsAreURI;
 		private bool _clientLinesStartAt1 = true;
 		private bool _clientPathsAreURI = true;
 
 
-		public DebugSession(bool debuggerLinesStartAt1, bool debuggerPathsAreURI = false)
+		public DebugSession()
 		{
-			_debuggerLinesStartAt1 = debuggerLinesStartAt1;
-			_debuggerPathsAreURI = debuggerPathsAreURI;
 		}
 
 		public void SendResponse(Response response, ResponseBody body = null)
@@ -333,6 +338,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			{
 				response.SetBody(body);
 			}
+
 			SendMessage(response);
 		}
 
@@ -355,11 +361,11 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			{
 				switch (command)
 				{
-
 					case "initialize":
-
 						if (args["linesStartAt1"] != null)
-						_clientLinesStartAt1 = args.Get("linesStartAt1").ToObject<bool>();
+						{
+							_clientLinesStartAt1 = args.Get("linesStartAt1").ToObject<bool>();
+						}
 
 						var pathFormat = args.Get("pathFormat").ToObject<string>();
 						if (pathFormat != null)
@@ -377,6 +383,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 									return;
 							}
 						}
+
 						Initialize(response, args);
 						break;
 
@@ -498,10 +505,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 		public abstract void Variables(Response response, Table arguments);
 
-		public virtual void Source(Response response, Table arguments)
-		{
-			SendErrorResponse(response, 1020, "Source not supported");
-		}
+		public abstract void Source(Response response, Table arguments);
 
 		public abstract void Threads(Response response, Table arguments);
 
@@ -511,99 +515,47 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 		protected int ConvertDebuggerLineToClient(int line)
 		{
-			if (_debuggerLinesStartAt1)
-			{
-				return _clientLinesStartAt1 ? line : line - 1;
-			}
-			else
-			{
-				return _clientLinesStartAt1 ? line + 1 : line;
-			}
+			return _clientLinesStartAt1 ? line : line - 1;
 		}
 
 		protected int ConvertClientLineToDebugger(int line)
 		{
-			if (_debuggerLinesStartAt1)
-			{
-				return _clientLinesStartAt1 ? line : line + 1;
-			}
-			else
-			{
-				return _clientLinesStartAt1 ? line - 1 : line;
-			}
+			return _clientLinesStartAt1 ? line : line + 1;
 		}
 
 		protected string ConvertDebuggerPathToClient(string path)
 		{
-			if (_debuggerPathsAreURI)
+			if (_clientPathsAreURI)
 			{
-				if (_clientPathsAreURI)
+				try
 				{
-					return path;
+					var uri = new Uri(path);
+					return uri.AbsoluteUri;
 				}
-				else
+				catch
 				{
-					Uri uri = new Uri(path);
-					return uri.LocalPath;
+					return null;
 				}
 			}
-			else
-			{
-				if (_clientPathsAreURI)
-				{
-					try
-					{
-						var uri = new System.Uri(path);
-						return uri.AbsoluteUri;
-					}
-					catch
-					{
-						return null;
-					}
-				}
-				else
-				{
-					return path;
-				}
-			}
+
+			return path;
 		}
 
 		protected string ConvertClientPathToDebugger(string clientPath)
 		{
-			if (clientPath == null)
+			if (clientPath != null && _clientPathsAreURI)
 			{
+				if (Uri.IsWellFormedUriString(clientPath, UriKind.Absolute))
+				{
+					Uri uri = new Uri(clientPath);
+					return uri.LocalPath;
+				}
+
+				Console.Error.WriteLine("path not well formed: '{0}'", clientPath);
 				return null;
 			}
 
-			if (_debuggerPathsAreURI)
-			{
-				if (_clientPathsAreURI)
-				{
-					return clientPath;
-				}
-				else
-				{
-					var uri = new System.Uri(clientPath);
-					return uri.AbsoluteUri;
-				}
-			}
-			else
-			{
-				if (_clientPathsAreURI)
-				{
-					if (Uri.IsWellFormedUriString(clientPath, UriKind.Absolute))
-					{
-						Uri uri = new Uri(clientPath);
-						return uri.LocalPath;
-					}
-					Console.Error.WriteLine("path not well formed: '{0}'", clientPath);
-					return null;
-				}
-				else
-				{
-					return clientPath;
-				}
-			}
+			return clientPath;
 		}
 	}
 }

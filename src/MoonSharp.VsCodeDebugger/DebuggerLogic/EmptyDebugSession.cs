@@ -14,7 +14,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		MoonSharpVsCodeDebugServer m_Server;
 
 		internal EmptyDebugSession(MoonSharpVsCodeDebugServer server)
-			: base(true, false)
 		{
 			m_Server = server;
 		}
@@ -148,6 +147,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		public override void Pause(Response response, Table arguments)
 		{
 			SendList();
+			SendResponse(response);
+		}
+
+		public override void Source(Response response, Table arguments)
+		{
 			SendResponse(response);
 		}
 

@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Debugging;
@@ -25,7 +24,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 
 		internal MoonSharpDebugSession(MoonSharpVsCodeDebugServer server, AsyncDebugger debugger)
-			: base(true, false)
 		{
 			m_Server = server;
 			m_Debug = debugger;
@@ -249,6 +247,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendText("Pause pending -- will pause at first script statement.");
 		}
 
+		public override void Source(Response response, Table arguments)
+		{
+			SendErrorResponse(response, 1020, "No source available");
+		}
+
 		public override void Scopes(Response response, Table arguments)
 		{
 			var scopes = new List<Scope>();
@@ -284,7 +287,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			if (src == null)
 			{
-				// we only support breakpoints in files mono can handle
+				// we only support breakpoints in files MoonSharp can handle
 				SendResponse(response, new SetBreakpointsResponseBody());
 				return;
 			}
@@ -325,14 +328,20 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				string name = frame.Name;
 				SourceRef sourceRef = frame.Location ?? DefaultSourceRef;
 				int sourceIdx = sourceRef.SourceIdx;
-				string path = sourceRef.IsClrLocation ? "(native)" : (m_Debug.GetSourceFile(sourceIdx) ?? "???");
-				string sourceName = Path.GetFileName(path);
+				string sourceFile = m_Debug.GetSourceFile(sourceIdx);
+				string sourcePath = sourceRef.IsClrLocation ? "(native)" : (sourceFile ?? "???");
+				string sourceName = Path.GetFileName(sourcePath);
 
-				var source = new Source(sourceName, path); // ConvertDebuggerPathToClient(path));
+				bool sourceAvailable = !sourceRef.IsClrLocation && sourceFile != null;
+				int sourceReference = sourceAvailable ? 0 : 1000;
+				string sourceHint = !sourceRef.IsClrLocation ? SDK.Source.HINT_DEEMPHASIZE : SDK.Source.HINT_NORMAL;
+				var source = new Source(sourceName, sourcePath, sourceReference, sourceHint); // ConvertDebuggerPathToClient(sourcePath));
 
+				string stackHint = sourceRef.IsClrLocation ? StackFrame.HINT_LABEL : (sourceFile != null ? StackFrame.HINT_NORMAL : StackFrame.HINT_SUBTLE);
 				stackFrames.Add(new StackFrame(level, name, source,
 					ConvertDebuggerLineToClient(sourceRef.FromLine), sourceRef.FromChar,
-					ConvertDebuggerLineToClient(sourceRef.ToLine), sourceRef.ToChar));
+					ConvertDebuggerLineToClient(sourceRef.ToLine), sourceRef.ToChar,
+					stackHint));
 
 				level++;
 			}
@@ -347,7 +356,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			stackFrames.Add(new StackFrame(level++, "(native)", null, 0));
 
-			SendResponse(response, new StackTraceResponseBody(stackFrames));
+			SendResponse(response, new StackTraceResponseBody(stackFrames, stack.Count + 2));
 		}
 
 		readonly SourceRef DefaultSourceRef = new SourceRef(-1, 0, 0, 0, 0, false);
@@ -382,7 +391,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response, new ThreadsResponseBody(threads));
 		}
 
-
 		public override void Variables(Response response, Table arguments)
 		{
 			int index = getInt(arguments, "variablesReference", -1);
@@ -397,11 +405,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			else if (index == SCOPE_LOCALS)
 			{
 				foreach (var w in m_Debug.GetWatches(WatchType.Locals))
-					variables.Add(new Variable(w.Name, (w.Value ?? DynValue.Void).ToDebugPrintString()));
+				{
+					DynValue value = w.Value ?? DynValue.Void;
+					variables.Add(new Variable(w.Name, value.ToDebugPrintString(), value.Type.ToLuaDebuggerString()));
+				}
 			}
 			else if (index < 0 || index >= m_Variables.Count)
 			{
-				variables.Add(new Variable("<error>", null));
+				variables.Add(new Variable("<error>", null, null));
 			}
 			else
 			{
