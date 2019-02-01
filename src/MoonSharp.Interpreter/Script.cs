@@ -592,8 +592,6 @@ namespace MoonSharp.Interpreter
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the debugger is enabled.
-		/// Note that unless a debugger attached, this property returns a 
-		/// value which might not reflect the real status of the debugger.
 		/// Use this property if you want to disable the debugger for some 
 		/// executions.
 		/// </summary>
@@ -611,13 +609,30 @@ namespace MoonSharp.Interpreter
 		public void AttachDebugger(IDebugger debugger)
 		{
 			DebuggerEnabled = true;
-			m_Debugger = debugger;
-			m_MainProcessor.AttachDebugger(debugger);
 
-			foreach (SourceCode src in m_Sources)
-				SignalSourceCodeChange(src);
+			if (debugger != m_Debugger)
+			{
+				DetachDebugger();
 
-			SignalByteCodeChange();
+				m_Debugger = debugger;
+				m_MainProcessor.AttachDebugger(debugger);
+
+				foreach (SourceCode src in m_Sources)
+					SignalSourceCodeChange(src);
+
+				SignalByteCodeChange();
+			}
+		}
+
+		/// <summary>
+		/// Detach the attached debugger. This usually should be called by the debugger itself and not by user code.
+		/// </summary>
+		/// <param name="debugger">The debugger object.</param>
+		public void DetachDebugger()
+		{
+			DebuggerEnabled = false;
+			m_Debugger = null;
+			m_MainProcessor.DetachDebugger();
 		}
 
 		/// <summary>
