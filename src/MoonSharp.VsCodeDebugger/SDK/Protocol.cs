@@ -244,7 +244,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			}
 		}
 
-		protected void SendMessage(ProtocolMessage message)
+		protected virtual void SendMessage(ProtocolMessage message)
 		{
 			message.seq = _sequenceNumber++;
 

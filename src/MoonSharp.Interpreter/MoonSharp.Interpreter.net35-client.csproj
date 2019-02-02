@@ -23,6 +23,7 @@
     <NuGetPackageImportStamp>ee6b0a8a</NuGetPackageImportStamp>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\keypair.snk</AssemblyOriginatorKeyFile>
+    <LangVersion>7</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -118,9 +119,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\AsyncDebugger.cs" />
-    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\EmptyDebugSession.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\DetachedDebugSession.cs" />
     <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\IAsyncDebuggerClient.cs" />
     <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\MoonSharpDebugSession.cs" />
+    <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\ScriptDebugSession.cs" />
     <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\VariableInspector.cs" />
     <Compile Include="..\MoonSharp.VsCodeDebugger\MoonSharpVsCodeDebugServer.cs">
       <Link>MoonSharpVsCodeDebugServer.cs</Link>

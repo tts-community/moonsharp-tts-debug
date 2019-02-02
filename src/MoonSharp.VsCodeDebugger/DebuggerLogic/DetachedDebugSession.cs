@@ -9,13 +9,12 @@ using MoonSharp.VsCodeDebugger.SDK;
 
 namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
-	internal class EmptyDebugSession : DebugSession
+	internal class DetachedDebugSession : MoonSharpDebugSession
 	{
-		MoonSharpVsCodeDebugServer m_Server;
+		public override string Name => "Detached";
 
-		internal EmptyDebugSession(MoonSharpVsCodeDebugServer server)
+		internal DetachedDebugSession(int port, MoonSharpVsCodeDebugServer server) : base(port, server, null)
 		{
-			m_Server = server;
 		}
 
 		public override void Initialize(Response response, Table args)
@@ -60,11 +59,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		private void SendList()
 		{
-			int currId = m_Server.CurrentId ?? -1000;
+			int currId = Server.CurrentId ?? -1000;
 
 			SendText("==========================================================");
 
-			foreach (var pair in m_Server.GetAttachedDebuggersByIdAndName())
+			foreach (var pair in Server.GetAttachedDebuggersByIdAndName())
 			{
 				string isdef = (pair.Key == currId) ? " (default)" : "";
 				SendText("{0} : {1}{2}", pair.Key.ToString().PadLeft(9), pair.Value, isdef);
@@ -120,18 +119,17 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			int id = 0;
 			if (int.TryParse(cmd, out id))
 			{
-				m_Server.CurrentId = id;
+				Server.CurrentId = id;
 
 				SendText("Re-attach the debugger to debug the selected script.");
 
-				Unbind();
+				Terminate();
 			}
 			else
 			{
 				SendList();
 			}
 		}
-
 
 		public override void Launch(Response response, Table arguments)
 		{
@@ -170,7 +168,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response);
 		}
 
-
 		public override void StepIn(Response response, Table arguments)
 		{
 			SendList();
@@ -189,12 +186,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response, new ThreadsResponseBody(threads));
 		}
 
-
 		public override void Variables(Response response, Table arguments)
 		{
 			SendResponse(response);
 		}
-
 
 		private void SendText(string msg, params object[] args)
 		{
@@ -202,11 +197,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendEvent(new OutputEvent("console", msg + "\n"));
 		}
 
-
-		public void Unbind()
+		public override void Terminate(bool restart = false)
 		{
-			SendText("Bye.");
-			SendEvent(new TerminatedEvent());
+			SendTerminateEvent(restart);
+			Stop();
 		}
 	}
 }

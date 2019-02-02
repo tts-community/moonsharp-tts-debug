@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"target": "es6",
+		"module": "commonjs",
+		"lib": [
+			"es2015"
+		],
+
+		"outDir": "./out",
+		"sourceMap": true,
+
+		"noImplicitAny": false,
+		"removeComments": false,
+		"noUnusedLocals": true,
+		"noImplicitThis": true,
+		"noFallthroughCasesInSwitch": false,
+		"noImplicitReturns": true,
+
+		"preserveConstEnums": true,
+		"strictNullChecks": true,
+		"noUnusedParameters": false
+	},
+	"exclude": [
+		"node_modules"
+	]
+}
