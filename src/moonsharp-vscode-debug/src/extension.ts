@@ -12,39 +12,46 @@ type Session = {
 	name: string,
 }
 
-function findSession(sessions: Session[], port: number) : Session | null {
-	for (const session of sessions) {
-		if (session.port === port) {
-			return session
-		}
-	}
-
-	return null
+type SessionQuickPickItem = vscode.QuickPickItem & {
+	session: Session
 }
 
-async function displaySessionPrompt(sessions: Session[]) {
-	const titles : string[] = sessions.map(session => `${session.name} [${session.port}]`)
-	const selectedNames : string[] = await vscode.window.showQuickPick(titles, {canPickMany: true}) || []
-	const selectedPorts : number[] = selectedNames.map(title => {
-		const match = title.match(/\[([0-9]+)\]$/)
-		const port = match ? parseInt(match[1]) : 0
-		return findSession(sessions, port) ? port : 0
-	}).filter(p => p !== 0)
+function showSessionPrompt(sessions: Session[]) : Promise<Session[]> {
+	return new Promise((resolve: (value?: Session[] | PromiseLike<Session[]>) => void, reject: (reason?: any) => void) => {
+		let accepted = false
+		const quickPick : vscode.QuickPick<SessionQuickPickItem> = vscode.window.createQuickPick()
+		quickPick.canSelectMany = true
+		quickPick.items = sessions.map(session => ({
+			label: session.name,
+			session: session,
+		}))
+		quickPick.selectedItems = quickPick.items
+		quickPick.onDidAccept(() => {
+			resolve(quickPick.selectedItems.map(item => item.session))
+			accepted = true
+			quickPick.hide()
+		})
+		quickPick.onDidHide(() => !accepted && resolve([]))
+		quickPick.show()
+	})
+}
 
-	let masterSelected = false
+async function chooseSessions(sessions: Session[]) {
+	const selectedSessions : Session[] = await showSessionPrompt(sessions)
 
 	if (masterDebugSession) {
-		for (const port of selectedPorts) {
-			const session = findSession(sessions, port)
-			vscode.debug.startDebugging(masterDebugSession.workspaceFolder, {
-				...masterDebugSession.configuration,
-				name: session ? session.name : port.toString(),
-				debugServer: port,
-				slave: true,
-			})
+		let masterSelected = false
 
-			if (port === masterPort) {
+		for (const session of selectedSessions) {
+			if (session.port === masterPort) {
 				masterSelected = true
+			} else {
+				vscode.debug.startDebugging(masterDebugSession.workspaceFolder, {
+					...masterDebugSession.configuration,
+					name: session.name,
+					debugServer: session.port,
+					slave: true,
+				})
 			}
 		}
 
@@ -64,7 +71,7 @@ async function selectSessions(debugSession: vscode.DebugSession) {
 		const sessions : Session[] = sessionResponse.sessions
 
 		if (sessions.length > 0) {
-			await displaySessionPrompt(sessions)
+			await chooseSessions(sessions)
 		}
 	 })
 }
