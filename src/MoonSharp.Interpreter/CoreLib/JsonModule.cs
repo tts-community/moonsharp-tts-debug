@@ -29,8 +29,7 @@ namespace MoonSharp.Interpreter.CoreLib
 		{
 			try
 			{
-				DynValue vt = args.AsType(0, "serialize", DataType.Table, false);
-				string s = JsonTableConverter.TableToJson(vt.Table);
+				string s = JsonTableConverter.ObjectToJson(args[0]);
 				return DynValue.NewString(s);
 			}
 			catch (SyntaxErrorException ex)
