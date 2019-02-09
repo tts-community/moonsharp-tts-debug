@@ -72,7 +72,7 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 				}
 			".Replace('\'', '\"');
 
-			Table t = JsonTableConverter.JsonToTable(json);
+			Table t = JsonTableConverter.ParseString(json).Table;
 			AssertTableValues(t);
 		}
 
@@ -87,11 +87,11 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 				}
 			".Replace('\'', '\"');
 
-			Table t1 = JsonTableConverter.JsonToTable(json);
+			Table t1 = JsonTableConverter.ParseString(json).Table;
 
 			string json2 = JsonTableConverter.TableToJson(t1);
 
-			Table t = JsonTableConverter.JsonToTable(json2);
+			Table t = JsonTableConverter.ParseString(json2).Table;
 
 			AssertTableValues(t);
 		}
@@ -126,9 +126,60 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 			string json = JsonTableConverter.ObjectToJson(o);
 
-			Table t = JsonTableConverter.JsonToTable(json);
+			Table t = JsonTableConverter.ParseString(json).Table;
 
 			AssertTableValues(t);
+		}
+
+
+		[Test]
+		public void JsonEmptyArrayDefaultToTable()
+		{
+			object o = new
+			{
+				anEmptyArray = new object[] {},
+			};
+
+
+			string json = JsonTableConverter.ObjectToJson(o);
+
+			Table t = JsonTableConverter.ParseString(json).Table;
+
+			Assert.AreEqual(DataType.Table, t.Get("anEmptyArray").Type);
+		}
+
+
+		[Test]
+		public void JsonEmptyArrayVsEmptyObject()
+		{
+			object o = new
+			{
+				anEmptyObject = new {},
+				anEmptyArray = new object[] {},
+				anExplicitEmptyArray = JsonEmptyArray.Create(),
+			};
+
+
+			string json = JsonTableConverter.ObjectToJson(o);
+
+			Table t = JsonTableConverter.ParseString(json, null, true).Table;
+
+			Assert.AreEqual(DataType.Table, t.Get("anEmptyObject").Type);
+			Assert.True(JsonEmptyArray.IsJsonEmptyArray(t.Get("anEmptyArray")));
+			Assert.True(JsonEmptyArray.IsJsonEmptyArray(t.Get("anExplicitEmptyArray")));
+		}
+
+
+		[Test]
+		public void JsonRootEmptyArray()
+		{
+			object[] a = new object[] {};
+
+			string json = JsonTableConverter.ObjectToJson(a);
+
+			DynValue v = JsonTableConverter.ParseString(json, null, true);
+
+			Assert.True(JsonEmptyArray.IsJsonEmptyArray(v));
 		}
 
 

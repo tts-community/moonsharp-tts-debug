@@ -357,6 +357,7 @@
     </Compile>
     <Compile Include="ScriptGlobalOptions.cs" />
     <Compile Include="ScriptOptions.cs" />
+    <Compile Include="Serialization\Json\JsonEmptyArray.cs" />
     <Compile Include="Serialization\Json\JsonNull.cs" />
     <Compile Include="Serialization\Json\JsonTableConverter.cs" />
     <Compile Include="Serialization\ObjectValueConverter.cs" />

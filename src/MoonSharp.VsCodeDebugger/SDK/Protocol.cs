@@ -226,7 +226,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		{
 			try
 			{
-				Table request = JsonTableConverter.JsonToTable(req);
+				Table request = JsonTableConverter.ParseString(req).Table;
 				if (request != null && request["type"].ToString() == "request")
 				{
 					if (TRACE)
