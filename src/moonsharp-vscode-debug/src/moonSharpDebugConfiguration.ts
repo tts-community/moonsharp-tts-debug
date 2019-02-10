@@ -18,7 +18,7 @@ export class MoonSharpDebugConfigurationProvider implements vscode.DebugConfigur
 		return [
 			{
 				type: 'moonsharp-lua',
-				name: 'Master',
+				name: 'Global',
 				request: 'attach',
 				path,
 			},
