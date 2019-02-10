@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using MoonSharp.Interpreter.CoreLib;
 using MoonSharp.Interpreter.Debugging;
@@ -31,9 +29,6 @@ namespace MoonSharp.Interpreter
 		/// The Lua version being supported
 		/// </summary>
 		public const string LUA_VERSION = "5.2";
-
-		private bool debugging = false;
-		private Type luaScriptType;
 
 		Processor m_MainProcessor = null;
 		ByteCode m_ByteCode;
@@ -340,23 +335,11 @@ namespace MoonSharp.Interpreter
 
 		public DynValue DoString(string code, Table globalContext = null)
 		{
-			if (luaScriptType == null)
-			{
-				MethodBase callerMethod = new StackTrace().GetFrame(1).GetMethod();
-				luaScriptType = callerMethod.ReflectedType;
-			}
-
-			string codeFriendlyName = null;
-			string scriptName = TtsDebugger.GetScriptName(luaScriptType, this);
-
-			if (scriptName != null)
-			{
-				codeFriendlyName = scriptName.Replace(' ', '_') + "_chunk_" + m_Sources.Count.ToString();
-			}
-
-			return DoString(code, globalContext, codeFriendlyName);
+			string codeFriendlyName = TtsDebugger.OnDoString(this);
+			DynValue result = DoString(code, globalContext, codeFriendlyName);
+			TtsDebugger.OnStringDone(this);
+			return result;
 		}
-
 
 		/// <summary>
 		/// Loads and executes a stream containing a Lua/MoonSharp script.
@@ -479,12 +462,6 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(DynValue function, params DynValue[] args)
 		{
-			if (!debugging)
-			{
-				debugging = true;
-				TtsDebugger.GetServer().AttachToScript(this, TtsDebugger.GetScriptName(luaScriptType, this));
-			}
-
 			this.CheckScriptOwnership(function);
 			this.CheckScriptOwnership(args);
 
