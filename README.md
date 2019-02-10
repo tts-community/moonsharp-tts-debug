@@ -47,7 +47,7 @@ Unfortunately, the setup process is a bit clunky.
 
 1. Download and install [VSCode](https://code.visualstudio.com/).
 
-2. Download and install the official [MoonSharp Debugging plugin](https://marketplace.visualstudio.com/items?itemName=xanathar.moonsharp-debug).
+2. Download the [latest release](https://github.com/tts-community/moonsharp/releases) of our enhanced MoonSharp VSCode extension and [install it](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix). If you have previously install the official MoonSharp plugin - please uninstall it first.
 
 2a. You _probably_ also want [EmmyLua](https://marketplace.visualstudio.com/items?itemName=tangzx.emmylua) and to configure the [".ttslua" extension to be treated as "lua"](https://stackoverflow.com/questions/29973619/how-to-make-vs-code-to-treat-other-file-extensions-as-certain-language) files.
 
@@ -57,35 +57,19 @@ Unfortunately, the setup process is a bit clunky.
 
  __Note__: *Please* don't only store your code in a TTS mod. Your scripts and UI should be nothing more than a single `#include file` or ```<Include src="file"/>```
 
-4. In the chosen directory, create a new file called `launch.json` and paste the following:
-
-```json
-{
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "MoonSharp Attach",
-            "debugServer": 41912,
-            "type": "moonsharp-debug",
-            "request": "attach"
-       }
-    ]
-}
-```
+4. Open *any* Lua file in VSCode.
 
 5. Launch TTS and open your mod.
 
 6. In VSCode swap to the [Debug View](https://code.visualstudio.com/docs/editor/debugging).
 
-7. (Only need to do this once) Near the top of the window chose "No Configurations > Add Configuration... > MoonSharp Attach".
+7. Press the green debug (Play) arrow.
 
-8. With the "MoonSharp Attach" configuration selected, press the Green Run icon.
+8. From the drop-down, select "MoonSharp". When prompted for a port, simply hit enter (we're using the default MoonSharp debug server port).
 
-The MoonSharp Debug plugin will now take over and automatically connect to Tabletop Simulator and download the scripts.
+9. You will now be presented with a list of scripts loaded within your mod. Press "OK" to debug them all, otherwise deselect any scripts you don't want to debug, then press "OK".
 
-Unfortunately, at present although you can list all scripts by typing `!list` down the bottom, you can only debug one at a time, see `!help` for more info.
+Because Tabletop Simulator is loading several scripts from one workshop save, we unfortunately don't have file paths available to us (because all the scripts are coming from one file). As such, VSCode won't automatically display your code. _However_, if an error is encountered execution will pause and than your code _will_ be automatically displayed, you'll also see a stack trace on the left and be able to mouse over variables to see their values. Alternatively, you can right-click on a script (Main Thread) and chose "Pause" which will cause your script to break (and its source to be shown) as soon as possible.
 
-Because Tabletop Simulator is loading several scripts from one workshop save, we unfortunately don't have file paths available to us (because all the scripts are coming from one file). As such, VSCode won't automatically display your code. _However_, if an error is encountered execution will pause and than your code _will_ be automatically displayed, you'll also see a stack trace on the left and be able to mouse over variables to see their values.
-
-Once the code is displayed, you may proceed to place breakpoints by clicking to the left of a line number in VSCode. TTS will correctly pause when it reaches these breakpoints, however placing breakpoints in Lua source files on your file system simply won't work.
+Once source for your script is displayed, you may proceed to place breakpoints by clicking to the left of a line number in VSCode. TTS will correctly pause when it reaches these breakpoints.
 
