@@ -1,9 +1,11 @@
 ﻿#if (!PCL) && ((!UNITY_5) || UNITY_STANDALONE)
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Debugging;
@@ -20,8 +22,27 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		readonly List<DynValue> m_Variables = new List<DynValue>();
 		bool m_NotifyExecutionEnd = false;
 		private bool m_RestartOnUnbind = false;
+		private ScriptRuntimeException runtimeException = null;
 
 		public override string Name => Debugger.Name;
+
+		private class CallStackFrameComparator : IEqualityComparer<WatchItem>
+		{
+			public bool Equals(WatchItem x, WatchItem y)
+			{
+				return x.Address == y.Address && x.BasePtr == y.BasePtr && x.RetAddress == y.RetAddress;
+			}
+
+			public int GetHashCode(WatchItem obj)
+			{
+				int hash = 27;
+				hash = (13 * hash) + obj.Address;
+				hash = (13 * hash) + obj.BasePtr;
+				hash = (13 * hash) + obj.RetAddress;
+				return hash;
+
+			}
+		}
 
 		internal ScriptDebugSession(int port, MoonSharpVsCodeDebugServer server, AsyncDebugger debugger) : base(port, server, debugger)
 		{
@@ -61,6 +82,9 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 				// This debug adapter does not support a side effect free evaluate request for data hovers.
 				supportsEvaluateForHovers = false,
+
+				// This debug adapter supports exception info.
+				supportsExceptionInfoRequest = true,
 
 				// This debug adapter does not support exception breakpoint filters
 				exceptionBreakpointFilters = new object[0]
@@ -127,6 +151,43 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			{
 				type = v.Type.ToLuaDebuggerString()
 			});
+		}
+
+		private ExceptionDetails ExceptionDetails(ScriptRuntimeException ex)
+		{
+			return new ExceptionDetails(
+				ex.Message,
+				null,
+				null,
+				null,
+				null,
+				null
+			);
+		}
+
+		private bool IsRuntimeExceptionCurrent()
+		{
+			if (runtimeException == null)
+			{
+				return false;
+			}
+
+			IList<WatchItem> exceptionCallStack = runtimeException.CallStack;
+			IList<WatchItem> debuggerCallStack = Debugger.GetWatches(WatchType.CallStack);
+
+			return exceptionCallStack.Count == debuggerCallStack.Count && exceptionCallStack.SequenceEqual(debuggerCallStack, new CallStackFrameComparator());
+		}
+
+		public override void ExceptionInfo(Response response, Table arguments)
+		{
+			if (IsRuntimeExceptionCurrent())
+			{
+				SendResponse(response, new ExceptionInfoResponseBody("runtime", "Runtime exception", "userUnhandled", ExceptionDetails(runtimeException)));
+			}
+			else
+			{
+				SendResponse(response);
+			}
 		}
 
 		private void ExecuteRepl(string cmd)
@@ -330,13 +391,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				SourceRef sourceRef = frame.Location ?? DefaultSourceRef;
 				int sourceIdx = sourceRef.SourceIdx;
 				string sourceFile = Debugger.GetSourceFile(sourceIdx);
-				string sourcePath = sourceRef.IsClrLocation ? "(native)" : (sourceFile ?? "???");
+				string sourcePath = sourceRef.IsClrLocation ? "(native)" : sourceFile;
 				string sourceName = Path.GetFileName(sourcePath);
 
 				bool sourceAvailable = !sourceRef.IsClrLocation && sourceFile != null;
-				int sourceReference = sourceAvailable ? 0 : 1000;
+				int sourceReference = 0;
 				string sourceHint = !sourceRef.IsClrLocation ? SDK.Source.HINT_DEEMPHASIZE : SDK.Source.HINT_NORMAL;
-				var source = new Source(sourceName, sourcePath, sourceReference, sourceHint); // ConvertDebuggerPathToClient(sourcePath));
+				var source = sourceAvailable ? new Source(sourceName, sourcePath, sourceReference, sourceHint) : null; // ConvertDebuggerPathToClient(sourcePath));
 
 				string stackHint = sourceRef.IsClrLocation ? StackFrame.HINT_LABEL : (sourceFile != null ? StackFrame.HINT_NORMAL : StackFrame.HINT_SUBTLE);
 				stackFrames.Add(new StackFrame(level, name, source,
@@ -425,7 +486,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		void IAsyncDebuggerClient.SendStopEvent()
 		{
-			SendEvent(CreateStoppedEvent("step"));
+			if (IsRuntimeExceptionCurrent())
+			{
+				SendEvent(CreateStoppedEvent("exception", "Paused on exception"));
+			}
+			else
+			{
+				SendEvent(CreateStoppedEvent("step"));
+			}
 		}
 
 
@@ -459,7 +527,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public void OnException(ScriptRuntimeException ex)
 		{
-			SendText("runtime error : {0}", ex.DecoratedMessage);
+			runtimeException = ex;
 		}
 
 		public void Unbind()

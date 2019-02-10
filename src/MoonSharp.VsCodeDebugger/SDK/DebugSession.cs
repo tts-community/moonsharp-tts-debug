@@ -242,6 +242,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		public bool supportsConditionalBreakpoints;
 		public bool supportsEvaluateForHovers;
 		public object[] exceptionBreakpointFilters;
+		public bool supportsExceptionInfoRequest;
 	}
 
 	public class ErrorResponseBody : ResponseBody
@@ -306,6 +307,42 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		{
 			result = value;
 			variablesReference = reff;
+		}
+	}
+
+	public class ExceptionDetails
+	{
+		public string message { get; }
+		public string typeName { get; }
+		public string fullTypeName { get; }
+		public string evaluateName { get; }
+		public string stackTrace { get; }
+		public ExceptionDetails innerException { get; }
+
+		public ExceptionDetails(string message, string typeName, string fullTypeName, string evaluateName, string stackTrace, ExceptionDetails innerException)
+		{
+			this.message = message;
+			this.typeName = typeName;
+			this.fullTypeName = fullTypeName;
+			this.evaluateName = evaluateName;
+			this.stackTrace = stackTrace;
+			this.innerException = innerException;
+		}
+	}
+
+	public class ExceptionInfoResponseBody : ResponseBody
+	{
+		public string exceptionId { get; }
+		public string description { get; }
+		public string breakMode { get; }
+		public ExceptionDetails details { get; }
+
+		public ExceptionInfoResponseBody(string exceptionId, string description, string breakMode, ExceptionDetails details)
+		{
+			this.exceptionId = exceptionId;
+			this.description = description;
+			this.breakMode = breakMode;
+			this.details = details;
 		}
 	}
 
@@ -457,6 +494,10 @@ namespace MoonSharp.VsCodeDebugger.SDK
 						Evaluate(response, args);
 						break;
 
+					case "exceptionInfo":
+						ExceptionInfo(response, args);
+						break;
+
 					default:
 						SendErrorResponse(response, 1014, "unrecognized request: {_request}", new { _request = command });
 						break;
@@ -512,6 +553,8 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		public abstract void Threads(Response response, Table arguments);
 
 		public abstract void Evaluate(Response response, Table arguments);
+
+		public abstract void ExceptionInfo(Response response, Table arguments);
 
 		// protected
 

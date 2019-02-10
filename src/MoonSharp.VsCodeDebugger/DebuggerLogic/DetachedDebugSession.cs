@@ -49,6 +49,9 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				// This debug adapter does not support a side effect free evaluate request for data hovers.
 				supportsEvaluateForHovers = false,
 
+				// This debug adapter does not support exception info.
+				supportsExceptionInfoRequest = false,
+
 				// This debug adapter does not support exception breakpoint filters
 				exceptionBreakpointFilters = new object[0]
 			});
@@ -111,6 +114,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			if (context == "repl")
 				ExecuteRepl(expression);
 
+			SendResponse(response);
+		}
+
+		public override void ExceptionInfo(Response response, Table arguments)
+		{
 			SendResponse(response);
 		}
 
