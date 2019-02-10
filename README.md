@@ -37,7 +37,7 @@ If you're running this enhanced MoonSharp interpreter, your Lua environment won'
 /execute print(debug.traceback())
 ```
 
-If you see white text printed, your not sandboxed. If you get an error (red text) then you're still running the original MoonSharp TTS interpreter.
+If you see white text printed, you're not sandboxed. If you get an error (red text) then you're still running the original MoonSharp TTS interpreter.
 
 # Debugging
 
