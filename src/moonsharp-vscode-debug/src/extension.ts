@@ -6,6 +6,7 @@ import {MoonSharpDebugConfigurationProvider} from './moonSharpDebugConfiguration
 
 let masterPort : number = 41912
 let masterDebugSession : vscode.DebugSession | null = null
+let reconnecting = false
 
 type Session = {
 	port: number,
@@ -79,18 +80,25 @@ async function selectSessions(debugSession: vscode.DebugSession) {
 function onDidStartDebugSession(debugSession: vscode.DebugSession) {
 	if (debugSession.configuration.debugServer === masterPort) {
 		masterDebugSession = debugSession
-		selectSessions(debugSession)
+
+		if (!reconnecting) {
+			selectSessions(debugSession)
+		}
 	}
 }
 
 function onDidTerminateDebugSession(debugSession: vscode.DebugSession) {
 	if (debugSession.configuration.debugServer === masterPort) {
+		reconnecting = true
 		masterDebugSession = null
 	}
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('moonsharp-lua', new MoonSharpDebugConfigurationProvider(port => masterPort = port)));
+	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('moonsharp-lua', new MoonSharpDebugConfigurationProvider(port => {
+		reconnecting = false
+		masterPort = port
+	})));
 	vscode.debug.onDidStartDebugSession(onDidStartDebugSession)
 	vscode.debug.onDidTerminateDebugSession(onDidTerminateDebugSession)
 }

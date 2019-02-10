@@ -64,7 +64,7 @@ export class MoonSharpDebugConfigurationProvider implements vscode.DebugConfigur
 		}
 
 		return {
-			name: 'Attach',
+			name: 'Global',
 			request: 'attach',
 			mode: 'directory',
 			pipeline: [],

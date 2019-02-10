@@ -381,7 +381,8 @@ namespace MoonSharp.VsCodeDebugger
 
 				debugger?.Script.AttachDebugger(debugger);
 
-				m_PortSessionDictionary.Add(port, new ListenerSessionPair(listener, session));
+				ListenerSessionPair listenerSessionPair = new ListenerSessionPair(listener, session);
+				m_PortSessionDictionary.Add(port, listenerSessionPair);
 
 				SpawnThread("VsCodeDebugServer_" + port, () => {
 					ListenThread(listener);
@@ -397,8 +398,15 @@ namespace MoonSharp.VsCodeDebugger
 			MoonSharpDebugSession session = m_PortSessionDictionary[port].Session;
 			m_PortSessionDictionary.Remove(port); // Prevent listener accepting further connections
 
-			session.Debugger?.Script?.DetachDebugger();
-			session.Terminate();
+			if (m_PortSessionDictionary[port].Listener.Server.IsBound)
+			{
+				session.Debugger?.Script?.DetachDebugger();
+				session.Terminate();
+			}
+			else
+			{
+				m_PortSessionDictionary[port].Listener.Stop();
+			}
 		}
 
 		private void ReplaceListenerDebugger(int port, AsyncDebugger debugger)
@@ -465,41 +473,35 @@ namespace MoonSharp.VsCodeDebugger
 
 				while (session != null)
 				{
-#if DOTNET_CORE
-					var task = listener.AcceptSocketAsync();
-					task.Wait();
-					var clientSocket = task.Result;
-#else
 					var clientSocket = listener.AcceptSocket();
-#endif
 
-					if (clientSocket != null)
+					Log("[{0}] : Accepted connection from client {1}", sessionIdentifier, clientSocket.RemoteEndPoint);
+
+					MoonSharpDebugSession threadSession;
+
+					lock (m_Lock)
 					{
-						Log("[{0}] : Accepted connection from client {1}", sessionIdentifier, clientSocket.RemoteEndPoint);
-
-						MoonSharpDebugSession threadSession = session;
-						SpawnThread("VsCodeDebugSession_" + sessionIdentifier, () => {
-							using (var networkStream = new NetworkStream(clientSocket))
-							{
-								try
-								{
-									threadSession.ProcessLoop(networkStream, networkStream);
-								}
-								catch (Exception ex)
-								{
-									Log("[{0}] : Error : {1}", ex.Message);
-								}
-							}
-
-#if DOTNET_CORE
-							clientSocket.Dispose();
-#else
-							clientSocket.Close();
-#endif
-
-							Log("[{0}] : Client connection closed", sessionIdentifier);
-						});
+						threadSession = m_PortSessionDictionary[port].Session;
 					}
+
+					SpawnThread("VsCodeDebugSession_" + sessionIdentifier, () => {
+						using (var networkStream = new NetworkStream(clientSocket))
+						{
+							try
+							{
+								threadSession.ProcessLoop(networkStream, networkStream);
+							}
+							catch (Exception ex)
+							{
+								Log("[{0}] : Error : {1}", ex.Message);
+							}
+						}
+
+						clientSocket.Shutdown(SocketShutdown.Both);
+						clientSocket.Close();
+
+						Log("[{0}] : Client connection closed", sessionIdentifier);
+					});
 
 					lock (m_Lock)
 					{
