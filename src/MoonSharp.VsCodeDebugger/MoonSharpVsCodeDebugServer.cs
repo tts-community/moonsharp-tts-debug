@@ -244,7 +244,7 @@ namespace MoonSharp.VsCodeDebugger
 		[Obsolete("Each script/debugger now has its own debug session.")]
 		public int? CurrentId
 		{
-			get => m_MasterSession?.Debugger?.Id;
+			get { return m_MasterSession?.Debugger?.Id; }
 			set
 			{
 				if (m_MasterSession?.Debugger?.Id != value)
@@ -301,7 +301,7 @@ namespace MoonSharp.VsCodeDebugger
 		[Obsolete("Each script/debugger now has its own debug session.")]
 		public Script Current
 		{
-			get => m_MasterSession?.Debugger?.Script;
+			get { return m_MasterSession?.Debugger?.Script; }
 			set
 			{
 				if (value == null)
