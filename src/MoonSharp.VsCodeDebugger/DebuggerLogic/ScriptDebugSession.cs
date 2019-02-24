@@ -396,7 +396,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 				bool sourceAvailable = !sourceRef.IsClrLocation && sourceFile != null;
 				int sourceReference = 0;
-				string sourceHint = !sourceRef.IsClrLocation ? SDK.Source.HINT_DEEMPHASIZE : SDK.Source.HINT_NORMAL;
+				string sourceHint = sourceRef.IsClrLocation ? SDK.Source.HINT_DEEMPHASIZE : (level == 0 ? SDK.Source.HINT_EMPHASIZE : SDK.Source.HINT_NORMAL);
 				var source = sourceAvailable ? new Source(sourceName, sourcePath, sourceReference, sourceHint) : null; // ConvertDebuggerPathToClient(sourcePath));
 
 				string stackHint = sourceRef.IsClrLocation ? StackFrame.HINT_LABEL : (sourceFile != null ? StackFrame.HINT_NORMAL : StackFrame.HINT_SUBTLE);
