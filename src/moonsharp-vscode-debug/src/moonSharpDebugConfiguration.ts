@@ -21,14 +21,6 @@ export class MoonSharpDebugConfigurationProvider implements vscode.DebugConfigur
 				name: 'Global',
 				request: 'attach',
 				path,
-			},
-			{
-				type: 'moonsharp-lua',
-				name: 'Launch',
-				request: 'launch',
-				mode:  'directory', // 'file' or 'directory', the later scans for all *.(lua|ttslua) files in 'path'.
-				pipeline: [], // Pipeline is made of stages that modify a (temporary) file. Each stage has either an extension 'command' or an 'externalCommand'.
-				path,
 			}
 		]
 	}
@@ -36,7 +28,7 @@ export class MoonSharpDebugConfigurationProvider implements vscode.DebugConfigur
 	public async resolveDebugConfiguration?(folder: vscode.WorkspaceFolder | undefined, debugConfiguration: vscode.DebugConfiguration, token?: vscode.CancellationToken): Promise<vscode.DebugConfiguration | null> {
 		const activeEditor = vscode.window.activeTextEditor
 
-		if ((!debugConfiguration || debugConfiguration.type !== 'moonsharp-lua') && (!activeEditor || activeEditor.document.languageId !== 'lua')) {
+		if (!activeEditor || !activeEditor.document.languageId.endsWith('lua') || (debugConfiguration.type && debugConfiguration.type !== 'moonsharp-lua')) {
 			return debugConfiguration
 		}
 

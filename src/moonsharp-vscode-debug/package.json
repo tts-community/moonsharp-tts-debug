@@ -43,6 +43,7 @@
     "main": "./out/extension",
     "activationEvents": [
         "onCommand:extension.getProgramName",
+        "onDebug",
         "onDebugInitialConfigurations",
         "onDebugResolve:lua"
     ],
@@ -57,6 +58,7 @@
                 "type": "moonsharp-lua",
                 "label": "MoonSharp",
                 "debugServer": 41912,
+                "languages": ["lua"],
                 "configurationAttributes": {
                     "attach": {
                         "required": [],
@@ -65,26 +67,6 @@
                                 "type": "string",
                                 "description": "File or directory path.",
                                 "default": ""
-                            }
-                        }
-                    },
-                    "launch": {
-                        "required": [],
-                        "properties": {
-                            "mode": {
-                                "type": "string",
-                                "description": "Debug a single 'file', or all files in a 'directory'.",
-                                "default": "directory"
-                            },
-                            "path": {
-                                "type": "string",
-                                "description": "Lua script path.",
-                                "default": ""
-                            },
-                            "pipeline": {
-                                "type": "Array<{command: string} | {externalCommand: string}>",
-                                "description": "Pipeline of commands (stages) that are run on a temporary copy of each Lua file before being pushed to MoonSharp.",
-                                "default": "[]"
                             }
                         }
                     }
