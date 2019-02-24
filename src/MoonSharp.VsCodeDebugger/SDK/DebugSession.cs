@@ -180,12 +180,13 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class StoppedEvent : Event
 	{
-		public StoppedEvent(int tid, string reasn, string txt = null)
+		public StoppedEvent(int threadId, string reason, string description, string text = null)
 			: base("stopped", new
 			{
-				threadId = tid,
-				reason = reasn,
-				text = txt
+				threadId,
+				reason,
+				description,
+				text
 			})
 		{
 		}

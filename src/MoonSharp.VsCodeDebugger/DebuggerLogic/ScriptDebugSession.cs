@@ -19,9 +19,16 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		const int SCOPE_LOCALS = 65536;
 		const int SCOPE_SELF = 65537;
 
+		const int STOP_REASON_STEP = 0;
+		const int STOP_REASON_BREAKPOINT = 1;
+		const int STOP_REASON_EXCEPTION = 2;
+		const int STOP_REASON_PAUSED = 3;
+
 		readonly List<DynValue> m_Variables = new List<DynValue>();
 		bool m_NotifyExecutionEnd = false;
 		private bool m_RestartOnUnbind = false;
+
+		private int stopReason = STOP_REASON_STEP;
 		private ScriptRuntimeException runtimeException = null;
 
 		public override string Name => Debugger.Name;
@@ -103,6 +110,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Continue(Response response, Table arguments)
 		{
+			stopReason = STOP_REASON_BREAKPOINT;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.Run });
 			SendResponse(response);
 		}
@@ -293,17 +301,19 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Next(Response response, Table arguments)
 		{
+			stopReason = STOP_REASON_STEP;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.StepOver });
 			SendResponse(response);
 		}
 
-		private StoppedEvent CreateStoppedEvent(string reason, string text = null)
+		private StoppedEvent CreateStoppedEvent(string reason, string description, string text = null)
 		{
-			return new StoppedEvent(0, reason, text);
+			return new StoppedEvent(0, reason, description, text);
 		}
 
 		public override void Pause(Response response, Table arguments)
 		{
+			stopReason = STOP_REASON_PAUSED;
 			Debugger.PauseRequested = true;
 			SendResponse(response);
 			SendText("Pause pending -- will pause at first script statement.");
@@ -437,12 +447,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void StepIn(Response response, Table arguments)
 		{
+			stopReason = STOP_REASON_STEP;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.StepIn });
 			SendResponse(response);
 		}
 
 		public override void StepOut(Response response, Table arguments)
 		{
+			stopReason = STOP_REASON_STEP;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.StepOut });
 			SendResponse(response);
 		}
@@ -486,13 +498,28 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		void IAsyncDebuggerClient.SendStopEvent()
 		{
-			if (IsRuntimeExceptionCurrent())
+			switch (stopReason)
 			{
-				SendEvent(CreateStoppedEvent("exception", "Paused on exception"));
-			}
-			else
-			{
-				SendEvent(CreateStoppedEvent("step"));
+				case STOP_REASON_STEP:
+					SendEvent(CreateStoppedEvent("step", "Paused after stepping"));
+					break;
+
+				case STOP_REASON_BREAKPOINT:
+					SendEvent(CreateStoppedEvent("breakpoint", "Paused on breakpoint"));
+					break;
+
+				case STOP_REASON_EXCEPTION:
+					SendEvent(CreateStoppedEvent("exception", "Paused on exception", runtimeException?.Message));
+					break;
+
+				case STOP_REASON_PAUSED:
+					SendEvent(CreateStoppedEvent("pause", "Paused by debugger"));
+					break;
+
+				default:
+					SendEvent(CreateStoppedEvent("unknown", "Paused for an unknown reason"));
+					break;
+
 			}
 		}
 
@@ -527,6 +554,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public void OnException(ScriptRuntimeException ex)
 		{
+			stopReason = STOP_REASON_EXCEPTION;
 			runtimeException = ex;
 		}
 
