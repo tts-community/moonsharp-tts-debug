@@ -325,12 +325,25 @@ namespace MoonSharp.Interpreter
 		/// <returns>
 		/// A DynValue containing the result of the processing of the loaded chunk.
 		/// </returns>
-		public DynValue DoString(string code, Table globalContext = null, string codeFriendlyName = null)
+		public DynValue DoString(string code, Table globalContext, string codeFriendlyName)
 		{
 			DynValue func = LoadString(code, globalContext, codeFriendlyName);
 			return Call(func);
 		}
 
+
+		/// <summary>
+		/// Loads and executes a string containing a Lua/MoonSharp script.
+		/// </summary>
+		/// <param name="code">The code.</param>
+		/// <param name="globalContext">The global context.</param>
+		/// <returns>
+		/// A DynValue containing the result of the processing of the loaded chunk.
+		/// </returns>
+		public DynValue DoString(string code, Table globalContext = null)
+		{
+			return DoString(code, globalContext, null);
+		}
 
 		/// <summary>
 		/// Loads and executes a stream containing a Lua/MoonSharp script.
