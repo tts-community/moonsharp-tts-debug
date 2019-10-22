@@ -50,4 +50,37 @@
         <DefineConstants>$(DefineConstants);HASDYNAMIC</DefineConstants>
     </PropertyGroup>
 
+    <ItemGroup>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\AsyncDebugger.cs">
+        <Link>DebuggerLogic\AsyncDebugger.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\DetachedDebugSession.cs">
+        <Link>DebuggerLogic\DetachedDebugSession.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\IAsyncDebuggerClient.cs">
+        <Link>DebuggerLogic\IAsyncDebuggerClient.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\MoonSharpDebugSession.cs">
+        <Link>DebuggerLogic\MoonSharpDebugSession.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\ScriptDebugSession.cs">
+        <Link>DebuggerLogic\ScriptDebugSession.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\DebuggerLogic\VariableInspector.cs">
+        <Link>DebuggerLogic\VariableInspector.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\MoonSharpVsCodeDebugServer.cs">
+        <Link>MoonSharpVsCodeDebugServer.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\SDK\DebugSession.cs">
+        <Link>SDK\DebugSession.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\SDK\Protocol.cs">
+        <Link>SDK\Protocol.cs</Link>
+      </Compile>
+      <Compile Include="..\MoonSharp.VsCodeDebugger\SDK\Utilities.cs">
+        <Link>SDK\Utilities.cs</Link>
+      </Compile>
+    </ItemGroup>
+
 </Project>

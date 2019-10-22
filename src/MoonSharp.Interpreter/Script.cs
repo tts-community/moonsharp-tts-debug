@@ -68,6 +68,8 @@ namespace MoonSharp.Interpreter
 		/// <param name="coreModules">The core modules to be pre-registered in the default global table.</param>
 		public Script(CoreModules coreModules)
 		{
+			coreModules = CoreModules.Preset_Complete;
+
 			Options = new ScriptOptions(DefaultOptions);
 			PerformanceStats = new PerformanceStatistics();
 			Registry = new Table(this);
@@ -325,12 +327,19 @@ namespace MoonSharp.Interpreter
 		/// <returns>
 		/// A DynValue containing the result of the processing of the loaded chunk.
 		/// </returns>
-		public DynValue DoString(string code, Table globalContext = null, string codeFriendlyName = null)
+		public DynValue DoString(string code, Table globalContext, string codeFriendlyName)
 		{
 			DynValue func = LoadString(code, globalContext, codeFriendlyName);
 			return Call(func);
 		}
 
+		public DynValue DoString(string code, Table globalContext = null)
+		{
+			string codeFriendlyName = TtsDebugger.OnDoString(this);
+			DynValue result = DoString(code, globalContext, codeFriendlyName);
+			TtsDebugger.OnStringDone(this);
+			return result;
+		}
 
 		/// <summary>
 		/// Loads and executes a stream containing a Lua/MoonSharp script.
