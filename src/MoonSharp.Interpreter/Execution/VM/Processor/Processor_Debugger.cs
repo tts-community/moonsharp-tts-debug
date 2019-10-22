@@ -35,6 +35,17 @@ namespace MoonSharp.Interpreter.Execution.VM
 			debugger.SetDebugService(new DebugService(m_Script, this));
 		}
 
+		internal void DetachDebugger()
+		{
+			if (m_Debug.DebuggerAttached != null)
+			{
+				m_Debug.DebuggerAttached.SetDebugService(null);
+				m_Debug.DebuggerAttached = null;
+			}
+
+			m_Debug.LineBasedBreakPoints = false;
+		}
+
 		internal bool DebuggerEnabled
 		{
 			get { return m_Debug.DebuggerEnabled; }

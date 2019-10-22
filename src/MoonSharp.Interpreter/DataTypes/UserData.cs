@@ -48,6 +48,7 @@ namespace MoonSharp.Interpreter
 			RegisterType<AnonWrapper>(InteropAccessMode.HideMembers);
 			RegisterType<EnumerableWrapper>(InteropAccessMode.NoReflectionAllowed);
 			RegisterType<JsonNull>(InteropAccessMode.Reflection);
+			RegisterType<JsonEmptyArray>(InteropAccessMode.Reflection);
 
 			DefaultAccessMode = InteropAccessMode.LazyOptimized;
 		}

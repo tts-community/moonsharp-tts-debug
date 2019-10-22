@@ -226,7 +226,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		{
 			try
 			{
-				Table request = JsonTableConverter.JsonToTable(req);
+				Table request = JsonTableConverter.ParseString(req).Table;
 				if (request != null && request["type"].ToString() == "request")
 				{
 					if (TRACE)
@@ -244,7 +244,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			}
 		}
 
-		protected void SendMessage(ProtocolMessage message)
+		protected virtual void SendMessage(ProtocolMessage message)
 		{
 			message.seq = _sequenceNumber++;
 

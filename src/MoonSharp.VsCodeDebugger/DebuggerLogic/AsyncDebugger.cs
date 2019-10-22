@@ -26,20 +26,21 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		List<WatchItem>[] m_WatchItems;
 		Dictionary<int, SourceCode> m_SourcesMap = new Dictionary<int, SourceCode>();
 		Dictionary<int, string> m_SourcesOverride = new Dictionary<int, string>();
-		Func<SourceCode, string> m_SourceFinder;
 
+
+
+		public Script Script { get; }
+
+		public Func<SourceCode, string> SourceFinder { get; }
+
+		public string Name { get; set; }
 
 		public DebugService DebugService { get; private set; }
 
 		public Regex ErrorRegex { get; set; }
 
-		public Script Script { get; private set; }
-
 		public bool PauseRequested { get; set; }
-
-		public string Name { get; set; }
-
-		public int Id { get; private set; }
+		public int Id { get; }
 
 
 		public AsyncDebugger(Script script, Func<SourceCode, string> sourceFinder, string name)
@@ -47,7 +48,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			lock (s_AsyncDebuggerIdLock)
 				Id = s_AsyncDebuggerIdCounter++;
 
-			m_SourceFinder = sourceFinder;
+			SourceFinder = sourceFinder;
 			ErrorRegex = new Regex(@"\A.*\Z");
 			Script = script;
 			m_WatchItems = new List<WatchItem>[(int)WatchType.MaxValue];
@@ -63,21 +64,23 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			get { return m_Client__; }
 			set
 			{
-				lock (m_Lock)
+				if (m_Client__ != value)
 				{
-					if (m_Client__ != null && m_Client__ != value)
+					lock (m_Lock)
 					{
-						m_Client__.Unbind();
-					}
+						IAsyncDebuggerClient previousClient = m_Client__;
 
-					if (value != null)
-					{
-						for (int i = 0; i < Script.SourceCodeCount; i++)
-							if (m_SourcesMap.ContainsKey(i))
-								value.OnSourceCodeChanged(i);
-					}
+						m_Client__ = value;
 
-					m_Client__ = value;
+						previousClient?.Unbind();
+
+						if (m_Client__ != null)
+						{
+							for (int i = 0; i < Script.SourceCodeCount; i++)
+								if (m_SourcesMap.ContainsKey(i))
+									m_Client__.OnSourceCodeChanged(i);
+						}
+					}
 				}
 			}
 		}
@@ -172,7 +175,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			bool invalidFile = false;
 
-			string file = m_SourceFinder(sourceCode);
+			string file = SourceFinder(sourceCode);
 
 			if (!string.IsNullOrEmpty(file))
 			{
