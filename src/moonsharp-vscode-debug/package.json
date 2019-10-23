@@ -9,7 +9,7 @@
         "email": "marco@mastropaolo.com"
     },
     "engines": {
-        "node": "^11.0.0",
+        "node": "^12.0.0",
         "vscode": "^1.30.0"
     },
     "icon": "images/icon.png",
