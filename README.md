@@ -1,77 +1,76 @@
-MoonSharp       [![Build Status](https://travis-ci.org/xanathar/moonsharp.svg?branch=master)](https://travis-ci.org/xanathar/moonsharp) [![Build Status](https://img.shields.io/nuget/v/MoonSharp.svg)](https://www.nuget.org/packages/MoonSharp/)
-=========
-http://www.moonsharp.org   
+# Tabletop Simulator Enhanced MoonSharp (with Debugging)
 
+This is a fork of [MoonSharp](https://www.moonsharp.org/) the Lua interpreter utilised by Tabletop Simulator (and many other games) that has been modified to improve the Tabletop Simulator mod development experience.
 
+![Demo](https://tts-community.github.io/moonsharp/demo.gif)
 
-A complete Lua solution written entirely in C# for the .NET, Mono, Xamarin and Unity3D platforms.
+# Why?
 
-Features:
-* 99% compatible with Lua 5.2 (with the only unsupported feature being weak tables support) 
-* Support for metalua style anonymous functions (lambda-style)
-* Easy to use API
-* **Debugger** support for Visual Studio Code (PCL targets not supported)
-* Remote debugger accessible with a web browser and Flash (PCL targets not supported)
-* Runs on .NET 3.5, .NET 4.x, .NET Core, Mono, Xamarin and Unity3D
-* Runs on Ahead-of-time platforms like iOS
-* Runs on IL2CPP converted code
-* Runs on platforms requiring a .NET 4.x portable class library (e.g. Windows Phone)
-* No external dependencies, implemented in as few targets as possible
-* Easy and performant interop with CLR objects, with runtime code generation where supported
-* Interop with methods, extension methods, overloads, fields, properties and indexers supported
-* Support for the complete Lua standard library with very few exceptions (mostly located on the 'debug' module) and a few extensions (in the string library, mostly)
-* Async methods for .NET 4.x targets
-* Supports dumping/loading bytecode for obfuscation and quicker parsing at runtime
-* An embedded JSON parser (with no dependencies) to convert between JSON and Lua tables
-* Easy opt-out of Lua standard library modules to sandbox what scripts can access
-* Easy to use error handling (script errors are exceptions)
-* Support for coroutines, including invocation of coroutines as C# iterators 
-* REPL interpreter, plus facilities to easily implement your own REPL in few lines of code
-* Complete XML help, and walkthroughs on http://www.moonsharp.org
+Tabletop Simulator allows you to script your mods in Lua. There's even an official [TTS plugin for Atom](https://api.tabletopsimulator.com/atom/). *However*, there's no official way to __debug__ your workshop mods - if something goes wrong in your mod's Lua, there's usually a lot of trial and error trying to work out what is going wrong.
 
-For highlights on differences between MoonSharp and standard Lua, see http://www.moonsharp.org/moonluadifferences.html
+However, the latest version of MoonSharp (over 2 years old) actually provides official support for debugging in [VSCode](https://code.visualstudio.com/) the functionality simply hasn't been included with Tabletop Simulator. What we've done here is built a drop-in replacement, for TTS' MoonSharp DLL, which comes with VSCode debugging support pre-enabled.
 
-Please see http://www.moonsharp.org for downloads, infos, tutorials, etc.
+Additionally, Tabletop Simulator runs workshop mods in sandbox. This is actually a good practice as Berserk Games are protecting users from distributing harmful mods. However, being in a sandbox can make development a bit frustrating (e.g. the lack of the `debug` module). As such, this fork also disables the sandbox _for you_. You still won't be able to develop and distribute mods to end-users that aren't sandboxed; because to disable the sandbox you need this DLL running on your computer.
 
+*__A Note on Security__: It's suggested you only run Tabletop Simulator with this modified MoonSharp interpreter only for development (and perhaps hosting) of your own mods, and _never_ when running someone else's code (e.g. workshop mods). Berserk Games have the sandbox enabled for a reason!*
 
-**License**
+# How do I use this?
 
-The program and libraries are released under a 3-clause BSD license - see the license section.
+We provide releases (available above), however, if you have Mono installed you can also compile this yourself with:
 
-Parts of the string library are based on the KopiLua project (https://github.com/NLua/KopiLua).
-Debugger icons are from the Eclipse project (https://www.eclipse.org/).
+```
+msbuild /t:Restore src/MoonSharp.Interpreter/MoonSharp.Interpreter.csproj
+msbuild /p:Configuration=Release src/MoonSharp.Interpreter/MoonSharp.Interpreter.csproj
+```
+(builds to `src/MoonSharp.Interpreter/bin/Release/net35/MoonSharp.Interpreter.dll`)
 
+Once you've either downloaded or built the DLL, it's simply a matter of copying the DLL over the version distributed with Tabletop Simulator. You may wish to backup the original file, however you can also retrieve the original by, in Steam, right clicking on TTS and chosing "Properties -> Updates > Verify Integrity of Game Files..."; which will cause the original DLL to be downloaded again.
 
-**Usage**
+To find your Tabletop Simulator directory, in Steam right click on TTS and chose "Properties -> Local Files -> Browse Local Files...". From here it's platform specific, but you're looking for the directory `Data/Managed`, it is in this directory that you should drop the enhanced interpreter DLL (overwriting the existing file with the same name).
 
-Use of the library is easy as:
+On macOS application contents are hidden, right click on "Tabletop Simulator" and chose "Show Package Contents", then navigate to `Contents/Resources/Data/Managed`.
 
-```C#
-double MoonSharpFactorial()
-{
-	string script = @"    
-		-- defines a factorial function
-		function fact (n)
-			if (n == 0) then
-				return 1
-			else
-				return n*fact(n - 1)
-			end
-		end
+# How do I know it worked?
 
-	return fact(5)";
+If you're running this enhanced MoonSharp interpreter, your Lua environment won't be sandboxed. The simplest way to check this is to paste the following in TTS' chat window (in game):
 
-	DynValue res = Script.RunString(script);
-	return res.Number;
-}
+```
+/execute print(debug.traceback())
 ```
 
-For more in-depth tutorials, samples, etc. please refer to http://www.moonsharp.org/getting_started.html
+If you see white text printed, you're not sandboxed. If you get an error (red text) then you're still running the original MoonSharp TTS interpreter.
 
+# Debugging
 
+Okay, this is what you're all here for...
 
+Unfortunately, the setup process is a bit clunky.
 
+1. Download and install [VSCode](https://code.visualstudio.com/).
 
+2. Download the [latest release](https://github.com/tts-community/moonsharp/releases) of our enhanced MoonSharp VSCode extension and [install it](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix). If you have previously install the official MoonSharp plugin - please uninstall it first.
 
+2a. You _probably_ also want [EmmyLua](https://marketplace.visualstudio.com/items?itemName=tangzx.emmylua) and to configure the [".ttslua" extension to be treated as "lua"](https://stackoverflow.com/questions/29973619/how-to-make-vs-code-to-treat-other-file-extensions-as-certain-language) files.
 
+3. Launch VSCode and open (File -> Open) the directory where you keep all your Lua code.
+
+  Technically, you can open any directoy you chose, but if you want to do code editing in VSCode then you should have a dedicated directory somewhere.
+
+ __Note__: *Please* don't only store your code in a TTS mod. Your scripts and UI should be nothing more than a single `#include file` or ```<Include src="file"/>```
+
+4. Open *any* Lua file in VSCode.
+
+5. Launch TTS and open your mod.
+
+6. In VSCode swap to the [Debug View](https://code.visualstudio.com/docs/editor/debugging).
+
+7. Press the green debug (Play) arrow.
+
+8. From the drop-down, select "MoonSharp". When prompted for a port, simply hit enter (we're using the default MoonSharp debug server port).
+
+9. You will now be presented with a list of scripts loaded within your mod. Press "OK" to debug them all, otherwise deselect any scripts you don't want to debug, then press "OK".
+
+Because Tabletop Simulator is loading several scripts from one workshop save, we unfortunately don't have file paths available to us (because all the scripts are coming from one file). As such, VSCode won't automatically display your code. _However_, if an error is encountered execution will pause and than your code _will_ be automatically displayed, you'll also see a stack trace on the left and be able to mouse over variables to see their values. Alternatively, you can right-click on a script (Main Thread) and chose "Pause" which will cause your script to break (and its source to be shown) as soon as possible.
+
+Once source for your script is displayed, you may proceed to place breakpoints by clicking to the left of a line number in VSCode. TTS will correctly pause when it reaches these breakpoints.
 
