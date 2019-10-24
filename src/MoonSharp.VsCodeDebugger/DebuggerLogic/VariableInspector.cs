@@ -8,10 +8,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal static class VariableInspector
 	{
-		internal static void InspectVariable(DynValue v, List<Variable> variables)
+		internal static void InspectVariable(DynValue v, List<Variable> variables, List<DynValue> structuredVariables)
 		{
-			variables.Add(new Variable("(value)", v.ToPrintString(), v.Type.ToLuaDebuggerString()));
-			variables.Add(new Variable("(val #id)", v.ReferenceID.ToString(), null));
+			if (v.Type != DataType.Table)
+			{
+				variables.Add(new Variable("(value)", v.ToPrintString(), v.Type.ToLuaDebuggerString()));
+				variables.Add(new Variable("(val #id)", v.ReferenceID.ToString(), null));
+			}
 
 			switch (v.Type)
 			{
@@ -28,26 +31,18 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					variables.Add(new Variable("(upvalues type)", v.Function.GetUpvaluesType().ToString(), null));
 					break;
 				case DataType.Table:
-					string tableType;
-
-					if (v.Table.MetaTable != null && (v.Table.OwnerScript == null))
-						tableType = "prime table with metatable";
-					else if (v.Table.MetaTable != null)
-						tableType = "table with metatable";
-					else if (v.Table.OwnerScript == null)
-						tableType = "prime table";
-					else
-						tableType = "table";
-
-					variables.Add(new Variable("(table #id)", v.Table.ReferenceID.ToString(), tableType));
-
-					if (v.Table.MetaTable != null)
-						variables.Add(new Variable("(metatable #id)", v.Table.MetaTable.ReferenceID.ToString(), "table"));
-
-					variables.Add(new Variable("(length)", v.Table.Length.ToString(), DataType.Number.ToLuaDebuggerString()));
-
 					foreach (TablePair p in v.Table.Pairs)
-						variables.Add(new Variable("[" + p.Key.ToDebugPrintString() + "]", p.Value.ToDebugPrintString(), p.Value.Type.ToLuaDebuggerString()));
+					{
+						var index = p.Value.Type == DataType.Table ? structuredVariables.Count + 1 : 0;
+
+						if (index > 0)
+						{
+							structuredVariables.Add(p.Value);
+						}
+
+						var key = p.Key.Type == DataType.String ? p.Key.ToDebugPrintString() : "[" + p.Key.ToDebugPrintString() + "]";
+						variables.Add(new Variable(key, p.Value.ToDebugPrintString(), p.Value.Type.ToLuaDebuggerString(), index));
+					}
 
 					break;
 				case DataType.UserData:

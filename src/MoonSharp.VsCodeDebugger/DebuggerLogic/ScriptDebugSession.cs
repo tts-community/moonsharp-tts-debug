@@ -165,7 +165,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			DynValue v = Debugger.Evaluate(expression) ?? DynValue.Nil;
 			m_Variables.Add(v);
 
-			SendResponse(response, new EvaluateResponseBody(v.ToDebugPrintString(), m_Variables.Count - 1)
+			SendResponse(response, new EvaluateResponseBody(v.ToDebugPrintString(), m_Variables.Count)
 			{
 				type = v.Type.ToLuaDebuggerString()
 			});
@@ -481,15 +481,15 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			if (scope == SCOPE_SELF)
 			{
 				DynValue v = Debugger.Evaluate("self");
-				VariableInspector.InspectVariable(v, variables);
+				VariableInspector.InspectVariable(v, variables, m_Variables);
 			}
-			else if (scope == 0 || index >= m_Variables.Count)
+			else if (scope == 0 && (index > m_Variables.Count || index <= 0))
 			{
 				variables.Add(new Variable("<error>", null, null));
 			}
 			else
 			{
-				VariableInspector.InspectVariable(m_Variables[index], variables);
+				VariableInspector.InspectVariable(m_Variables[index - 1], variables, m_Variables);
 			}
 
 			SendResponse(response, new VariablesResponseBody(variables));
@@ -502,7 +502,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			foreach (var w in Debugger.GetWatches(WatchType.Locals))
 			{
 				DynValue value = w.Value ?? DynValue.Void;
-				variables.Add(new Variable(w.Name, value.ToDebugPrintString(), value.Type.ToLuaDebuggerString()));
+				var index = value.Type == DataType.Table ? m_Variables.Count + 1 : 0;
+
+				if (index > 0)
+				{
+					m_Variables.Add(value);
+				}
+
+				variables.Add(new Variable(w.Name, value.ToDebugPrintString(), value.Type.ToLuaDebuggerString(), index));
 			}
 
 			SendResponse(response, new VariablesResponseBody(variables));
