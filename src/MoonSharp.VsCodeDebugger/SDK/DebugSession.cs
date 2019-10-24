@@ -365,7 +365,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 	public abstract class DebugSession : ProtocolServer
 	{
 		private bool _clientLinesStartAt1 = true;
-		private bool _clientPathsAreURI = true;
+		private bool _clientPathsAreURI = false;
 
 
 		public DebugSession()
@@ -571,20 +571,20 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 		protected string ConvertDebuggerPathToClient(string path)
 		{
-			if (_clientPathsAreURI)
+			if (path == null || !_clientPathsAreURI)
 			{
-				try
-				{
-					var uri = new Uri(path);
-					return uri.AbsoluteUri;
-				}
-				catch
-				{
-					return null;
-				}
+				return path;
 			}
 
-			return path;
+			try
+			{
+				var uri = new Uri(path);
+				return uri.AbsoluteUri;
+			}
+			catch
+			{
+				return null;
+			}
 		}
 
 		protected string ConvertClientPathToDebugger(string clientPath)

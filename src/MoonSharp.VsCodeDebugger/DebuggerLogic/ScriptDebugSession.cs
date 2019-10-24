@@ -242,37 +242,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 				SendText("Notifications of execution end are : {0}", m_NotifyExecutionEnd ? "enabled" : "disabled");
 			}
-			else if (cmd == "list")
-			{
-				int currId = Server.CurrentId ?? -1000;
-
-				foreach (var pair in Server.GetAttachedDebuggersByIdAndName())
-				{
-					string isthis = (pair.Key == Debugger.Id) ? " (this)" : "";
-					string isdef = (pair.Key == currId) ? " (default)" : "";
-
-					SendText("{0} : {1}{2}{3}", pair.Key.ToString().PadLeft(9), pair.Value, isdef, isthis);
-				}
-			}
-			else if (cmd.StartsWith("select") || cmd.StartsWith("switch"))
-			{
-				string arg = cmd.Substring("switch".Length).Trim();
-
-				try
-				{
-					int id = int.Parse(arg);
-					Server.CurrentId = id;
-
-					if (cmd.StartsWith("switch"))
-						Unbind();
-					else
-						SendText("Next time you'll attach the debugger, it will be atteched to script #{0}", id);
-				}
-				catch (Exception ex)
-				{
-					SendText("Error setting regex: {0}", ex.Message);
-				}
-			}
 			else
 			{
 				SendText("Syntax error : {0}\n", cmd);
@@ -283,9 +252,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			{
 				SendText("Available commands : ");
 				SendText("    !help - gets this help");
-				SendText("    !list - lists the other scripts which can be debugged");
-				SendText("    !select <id> - select another script for future sessions");
-				SendText("    !switch <id> - switch to another script (same as select + disconnect)");
 				SendText("    !seterror <regex> - sets the regex which tells which errors to trap");
 				SendText("    !geterror - gets the current value of the regex which tells which errors to trap");
 				SendText("    !execendnotify [on|off] - sets the notification of end of execution on or off (default = off)");
@@ -401,13 +367,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				SourceRef sourceRef = frame.Location ?? DefaultSourceRef;
 				int sourceIdx = sourceRef.SourceIdx;
 				string sourceFile = Debugger.GetSourceFile(sourceIdx);
-				string sourcePath = sourceRef.IsClrLocation ? "(native)" : sourceFile;
-				string sourceName = Path.GetFileName(sourcePath);
+				string sourcePath = sourceRef.IsClrLocation ? "(native)" : ConvertDebuggerPathToClient(sourceFile);
+				string sourceName = sourceRef.IsClrLocation ? sourcePath : Path.GetFileName(sourcePath);
 
 				bool sourceAvailable = !sourceRef.IsClrLocation && sourceFile != null;
 				int sourceReference = 0;
 				string sourceHint = sourceRef.IsClrLocation ? SDK.Source.HINT_DEEMPHASIZE : (level == 0 ? SDK.Source.HINT_EMPHASIZE : SDK.Source.HINT_NORMAL);
-				var source = sourceAvailable ? new Source(sourceName, sourcePath, sourceReference, sourceHint) : null; // ConvertDebuggerPathToClient(sourcePath));
+				var source = sourceAvailable ? new Source(sourceName, sourcePath, sourceReference, sourceHint) : null;
 
 				string stackHint = sourceRef.IsClrLocation ? StackFrame.HINT_LABEL : (sourceFile != null ? StackFrame.HINT_NORMAL : StackFrame.HINT_SUBTLE);
 				stackFrames.Add(new StackFrame(level, name, source,
