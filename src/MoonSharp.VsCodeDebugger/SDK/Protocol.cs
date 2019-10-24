@@ -233,10 +233,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 						Console.Error.WriteLine(string.Format("C {0}: {1}", request["command"], req));
 
 					var response = new Response(request);
-
 					DispatchRequest(request.Get("command").String, request.Get("arguments").Table, response);
-
-					SendMessage(response);
 				}
 			}
 			catch
@@ -325,18 +322,6 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			_buffer = newBuffer;
 			return b;
 		}
-
-
-
-
-
-
-
-
-
-
-
-
 	}
 }
 #endif

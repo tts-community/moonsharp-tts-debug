@@ -16,8 +16,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal class ScriptDebugSession : MoonSharpDebugSession, IAsyncDebuggerClient
 	{
-		const int SCOPE_LOCALS = 65536;
-		const int SCOPE_SELF = 65537;
+		const int SCOPE_LOCALS = 1;
+		const int SCOPE_SELF = 2;
+
+		const int VARIABLE_REFERENCE_FRAME_ID_OFFSET = 16;
+		const int VARIABLE_REFERENCE_SCOPE_OFFSET = VARIABLE_REFERENCE_FRAME_ID_OFFSET + 8;
+
+		const int VARIABLE_REFERENCE_FRAME_ID_MASK = 0xFF << VARIABLE_REFERENCE_FRAME_ID_OFFSET;
+		const int VARIABLE_REFERENCE_SCOPE_MASK = 0xFF << VARIABLE_REFERENCE_SCOPE_OFFSET;
 
 		const int STOP_REASON_STEP = 0;
 		const int STOP_REASON_BREAKPOINT = 1;
@@ -26,10 +32,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		readonly List<DynValue> m_Variables = new List<DynValue>();
 		bool m_NotifyExecutionEnd = false;
-		private bool m_RestartOnUnbind = false;
+		bool m_RestartOnUnbind = false;
 
-		private int stopReason = STOP_REASON_STEP;
-		private ScriptRuntimeException runtimeException = null;
+		int stopReason = STOP_REASON_STEP;
+		ScriptRuntimeException runtimeException = null;
+
+		private int currentLocalsStackFrame = -1;
+		private int pendingLocalsStackFrame = -1;
+		private Response pendingLocalsResponse;
 
 		public override string Name => Debugger.Name;
 
@@ -294,8 +304,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		{
 			var scopes = new List<Scope>();
 
-			scopes.Add(new Scope("Locals", SCOPE_LOCALS));
-			scopes.Add(new Scope("Self", SCOPE_SELF));
+			int frameId = getInt(arguments, "frameId", 0);
+
+			if (frameId >= 0 && frameId <= Debugger.GetWatches(WatchType.CallStack).Count)
+			{
+				scopes.Add(new Scope("Locals", (SCOPE_LOCALS << VARIABLE_REFERENCE_SCOPE_OFFSET) | (frameId << VARIABLE_REFERENCE_FRAME_ID_OFFSET)));
+				scopes.Add(new Scope("Self", (SCOPE_SELF << VARIABLE_REFERENCE_SCOPE_OFFSET) | (frameId << VARIABLE_REFERENCE_FRAME_ID_OFFSET)));
+			}
 
 			SendResponse(response, new ScopesResponseBody(scopes));
 		}
@@ -348,7 +363,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		public override void StackTrace(Response response, Table args)
 		{
 			int maxLevels = getInt(args, "levels", 10);
-			//int threadReference = getInt(args, "threadId", 0);
 
 			var stackFrames = new List<StackFrame>();
 
@@ -433,30 +447,62 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Variables(Response response, Table arguments)
 		{
-			int index = getInt(arguments, "variablesReference", -1);
+			int variablesReference = getInt(arguments, "variablesReference", -1);
+
+			int scope = (variablesReference & VARIABLE_REFERENCE_SCOPE_MASK) >> VARIABLE_REFERENCE_SCOPE_OFFSET;
+			int frameId = (variablesReference & VARIABLE_REFERENCE_FRAME_ID_MASK) >> VARIABLE_REFERENCE_FRAME_ID_OFFSET;
+
+			int index = variablesReference & ~(VARIABLE_REFERENCE_FRAME_ID_MASK | VARIABLE_REFERENCE_SCOPE_MASK);
+
+			if (scope == SCOPE_LOCALS)
+			{
+				if (frameId == currentLocalsStackFrame)
+				{
+					SendLocalVariablesResponse(response);
+				}
+				else
+				{
+					if (pendingLocalsResponse != null)
+					{
+						SendErrorResponse(pendingLocalsResponse, 1200, "pending Variables request cancelled by newer request");
+					}
+
+					pendingLocalsStackFrame = frameId;
+					pendingLocalsResponse = response;
+
+					Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.ViewFrame, StackFrame = pendingLocalsStackFrame });
+				}
+
+				return;
+			}
 
 			var variables = new List<Variable>();
 
-			if (index == SCOPE_SELF)
+			if (scope == SCOPE_SELF)
 			{
 				DynValue v = Debugger.Evaluate("self");
 				VariableInspector.InspectVariable(v, variables);
 			}
-			else if (index == SCOPE_LOCALS)
-			{
-				foreach (var w in Debugger.GetWatches(WatchType.Locals))
-				{
-					DynValue value = w.Value ?? DynValue.Void;
-					variables.Add(new Variable(w.Name, value.ToDebugPrintString(), value.Type.ToLuaDebuggerString()));
-				}
-			}
-			else if (index < 0 || index >= m_Variables.Count)
+			else if (scope == 0 || index >= m_Variables.Count)
 			{
 				variables.Add(new Variable("<error>", null, null));
 			}
 			else
 			{
 				VariableInspector.InspectVariable(m_Variables[index], variables);
+			}
+
+			SendResponse(response, new VariablesResponseBody(variables));
+		}
+
+		void SendLocalVariablesResponse(Response response)
+		{
+			var variables = new List<Variable>();
+
+			foreach (var w in Debugger.GetWatches(WatchType.Locals))
+			{
+				DynValue value = w.Value ?? DynValue.Void;
+				variables.Add(new Variable(w.Name, value.ToDebugPrintString(), value.Type.ToLuaDebuggerString()));
 			}
 
 			SendResponse(response, new VariablesResponseBody(variables));
@@ -489,11 +535,24 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			}
 		}
 
-
-		void IAsyncDebuggerClient.OnWatchesUpdated(WatchType watchType)
+		void IAsyncDebuggerClient.OnWatchesUpdated(WatchType watchType, int stackFrameIndex)
 		{
 			if (watchType == WatchType.CallStack)
+			{
 				m_Variables.Clear();
+			}
+			else if (watchType == WatchType.Locals)
+			{
+				currentLocalsStackFrame = stackFrameIndex;
+
+				if (currentLocalsStackFrame == pendingLocalsStackFrame)
+				{
+					SendLocalVariablesResponse(pendingLocalsResponse);
+
+					pendingLocalsStackFrame = -1;
+					pendingLocalsResponse = null;
+				}
+			}
 		}
 
 		void IAsyncDebuggerClient.OnSourceCodeChanged(int sourceID)

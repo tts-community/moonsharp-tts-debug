@@ -58,7 +58,8 @@ namespace MoonSharp.Interpreter.Debugging
 		/// </summary>
 		/// <param name="watchType">Type of the watch.</param>
 		/// <param name="items">The items.</param>
-		void Update(WatchType watchType, IEnumerable<WatchItem> items);
+		/// <param name="stackFrameIndex">Stack frame the watch items pertain to (presently only supports local variables).</param>
+		void Update(WatchType watchType, IEnumerable<WatchItem> items, int stackFrameIndex);
 		/// <summary>
 		/// Called by the script engine to get which expressions are active 
 		/// watches in the debugger.

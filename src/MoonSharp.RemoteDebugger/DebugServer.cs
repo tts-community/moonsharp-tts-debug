@@ -120,7 +120,7 @@ namespace MoonSharp.RemoteDebugger
 			SendOption("error_rx", m_ErrorRegEx.ToString());
 		}
 
-		public void Update(WatchType watchType, IEnumerable<WatchItem> items)
+		public void Update(WatchType watchType, IEnumerable<WatchItem> items, int stackFrameIndex)
 		{
 			if (watchType != WatchType.CallStack && watchType != WatchType.Watches)
 				return;

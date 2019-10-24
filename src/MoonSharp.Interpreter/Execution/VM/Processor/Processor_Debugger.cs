@@ -155,6 +155,15 @@ namespace MoonSharp.Interpreter.Execution.VM
 					case DebuggerAction.ActionType.HardRefresh:
 						RefreshDebugger(true, instructionPtr);
 						break;
+					case DebuggerAction.ActionType.ViewFrame:
+						var callStack = Debugger_GetCallStack(instr.SourceCodeRef);
+
+						if (action.StackFrame >= 0 && action.StackFrame < callStack.Count)
+						{
+							RefreshDebugger(false, instructionPtr, action.StackFrame);
+						}
+
+						break;
 					case DebuggerAction.ActionType.None:
 					default:
 						break;
@@ -264,8 +273,13 @@ namespace MoonSharp.Interpreter.Execution.VM
 				return true;
 		}
 
-		private void RefreshDebugger(bool hard, int instructionPtr)
+		private void RefreshDebugger(bool hard, int instructionPtr, int stackFrameIndex = -1)
 		{
+			if (stackFrameIndex < 0)
+			{
+				stackFrameIndex = m_ExecutionStack.Count - 1;
+			}
+
 			SourceRef sref = GetCurrentSourceRef(instructionPtr);
 			ScriptExecutionContext context = new ScriptExecutionContext(this, null, sref);
 
@@ -273,14 +287,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 			List<WatchItem> callStack = Debugger_GetCallStack(sref);
 			List<WatchItem> watches = Debugger_RefreshWatches(context, watchList);
 			List<WatchItem> vstack = Debugger_RefreshVStack();
-			List<WatchItem> locals = Debugger_RefreshLocals(context);
+			List<WatchItem> locals = Debugger_RefreshLocals(stackFrameIndex);
 			List<WatchItem> threads = Debugger_RefreshThreads(context);
 
-			m_Debug.DebuggerAttached.Update(WatchType.CallStack, callStack);
-			m_Debug.DebuggerAttached.Update(WatchType.Watches, watches);
-			m_Debug.DebuggerAttached.Update(WatchType.VStack, vstack);
-			m_Debug.DebuggerAttached.Update(WatchType.Locals, locals);
-			m_Debug.DebuggerAttached.Update(WatchType.Threads, threads);
+			m_Debug.DebuggerAttached.Update(WatchType.CallStack, callStack, -1);
+			m_Debug.DebuggerAttached.Update(WatchType.Watches, watches, -1);
+			m_Debug.DebuggerAttached.Update(WatchType.VStack, vstack, -1);
+			m_Debug.DebuggerAttached.Update(WatchType.Locals, locals, stackFrameIndex);
+			m_Debug.DebuggerAttached.Update(WatchType.Threads, threads, -1);
 
 			if (hard)
 				m_Debug.DebuggerAttached.RefreshBreakpoints(m_Debug.BreakPoints);
@@ -317,10 +331,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 			return watchList.Select(w => Debugger_RefreshWatch(context, w)).ToList();
 		}
 
-		private List<WatchItem> Debugger_RefreshLocals(ScriptExecutionContext context)
+		private List<WatchItem> Debugger_RefreshLocals(int stackFrameIndex)
 		{
 			List<WatchItem> locals = new List<WatchItem>();
-			var top = this.m_ExecutionStack.Peek();
+			var top = m_ExecutionStack.Peek(stackFrameIndex);
 
 			if (top != null && top.Debug_Symbols != null && top.LocalScope != null)
 			{

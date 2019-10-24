@@ -4,13 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Debugging;
-using MoonSharp.VsCodeDebugger;
-using MoonSharp.VsCodeDebugger.SDK;
 
 namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
@@ -20,8 +16,9 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		private static int s_AsyncDebuggerIdCounter = 0;
 
 		object m_Lock = new object();
-		private IAsyncDebuggerClient m_Client__;
-		DebuggerAction m_PendingAction = null;
+		IAsyncDebuggerClient m_Client__;
+		DebuggerAction m_PendingAction;
+		int m_PrevInstructionPtr = -1;
 
 		List<WatchItem>[] m_WatchItems;
 		Dictionary<int, SourceCode> m_SourcesMap = new Dictionary<int, SourceCode>();
@@ -89,11 +86,15 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		{
 			PauseRequested = false;
 
-			lock (m_Lock)
-				if (Client != null)
+			if (ip != m_PrevInstructionPtr)
+			{
+				m_PrevInstructionPtr = ip;
+
+				lock (m_Lock)
 				{
-					Client.SendStopEvent();
+					Client?.SendStopEvent();
 				}
+			}
 
 			while (true)
 			{
@@ -253,7 +254,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			return PauseRequested;
 		}
 
-		void IDebugger.Update(WatchType watchType, IEnumerable<WatchItem> items)
+		void IDebugger.Update(WatchType watchType, IEnumerable<WatchItem> items, int stackFrameIndex)
 		{
 			var list = m_WatchItems[(int)watchType];
 
@@ -262,7 +263,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			lock (m_Lock)
 				if (Client != null)
-					Client.OnWatchesUpdated(watchType);
+					Client.OnWatchesUpdated(watchType, stackFrameIndex);
 		}
 
 

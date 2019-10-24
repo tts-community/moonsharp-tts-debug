@@ -65,6 +65,10 @@ namespace MoonSharp.Interpreter.Debugging
 			/// </summary>
 			HardRefresh,
 			/// <summary>
+			/// Changes the stack frame the debugger is viewing
+			/// </summary>
+			ViewFrame,
+			/// <summary>
 			/// No action
 			/// </summary>
 			None,
@@ -95,6 +99,10 @@ namespace MoonSharp.Interpreter.Debugging
 		/// Gets or sets the lines. This is used for the ResetBreakpoints and sets line-based bps only.
 		/// </summary>
 		public int[] Lines { get; set; }
+		/// <summary>
+		/// Gets or sets the stack frame. This is used for ViewFrame.
+		/// </summary>
+		public int StackFrame { get; set; }
 
 
 		/// <summary>
