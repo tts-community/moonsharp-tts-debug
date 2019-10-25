@@ -28,7 +28,7 @@ export class MoonSharpDebugConfigurationProvider implements vscode.DebugConfigur
 	public async resolveDebugConfiguration?(folder: vscode.WorkspaceFolder | undefined, debugConfiguration: vscode.DebugConfiguration, token?: vscode.CancellationToken): Promise<vscode.DebugConfiguration | null> {
 		const activeEditor = vscode.window.activeTextEditor
 
-		if (!activeEditor || !activeEditor.document.languageId.endsWith('lua') || (debugConfiguration.type && debugConfiguration.type !== 'moonsharp-lua')) {
+		if (debugConfiguration.type !== 'moonsharp-lua' && (!activeEditor || !activeEditor.document.languageId.endsWith('lua'))) {
 			return debugConfiguration
 		}
 
