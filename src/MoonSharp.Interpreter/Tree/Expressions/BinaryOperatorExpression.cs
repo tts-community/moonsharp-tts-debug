@@ -5,16 +5,16 @@ using MoonSharp.Interpreter.Execution.VM;
 namespace MoonSharp.Interpreter.Tree.Expressions
 {
 	/// <summary>
-	/// 
+	///
 	/// </summary>
 	class BinaryOperatorExpression : Expression
 	{
 		[Flags]
 		private enum Operator
 		{
-			NotAnOperator = 0, 
-			
-			Or = 0x1, 
+			NotAnOperator = 0,
+
+			Or = 0x1,
 			And = 0x2,
 			Less = 0x4,
 			Greater = 0x8,
@@ -140,7 +140,7 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 				throw new InternalErrorException("Expression reduction didn't work! - 1");
 			if (nodes.Expr == null)
 				throw new InternalErrorException("Expression reduction didn't work! - 2");
-			
+
 			return nodes.Expr;
 		}
 
@@ -353,7 +353,7 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 
 			if ((m_Operator & COMPARES) != 0)
 			{
-				return DynValue.NewBoolean(EvalComparison(v1, v2, m_Operator));				
+				return DynValue.NewBoolean(EvalComparison(v1, v2, m_Operator));
 			}
 			else if (m_Operator == Operator.StrConcat)
 			{

@@ -3,7 +3,7 @@ using MoonSharp.Interpreter.Execution;
 
 namespace MoonSharp.Interpreter.Tree.Expressions
 {
-	class TableConstructor : Expression 
+	class TableConstructor : Expression
 	{
 		bool m_Shared = false;
 		List<Expression> m_PositionalValues = new List<Expression>();

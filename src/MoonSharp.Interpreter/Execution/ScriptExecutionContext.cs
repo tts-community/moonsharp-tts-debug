@@ -12,13 +12,15 @@ namespace MoonSharp.Interpreter
 	{
 		Processor m_Processor;
 		CallbackFunction m_Callback;
+		int StackFrameIndex;
 
-		internal ScriptExecutionContext(Processor p, CallbackFunction callBackFunction, SourceRef sourceRef, bool isDynamic = false)
+		internal ScriptExecutionContext(Processor p, CallbackFunction callBackFunction, SourceRef sourceRef, bool isDynamic = false, int stackFrameIndex = -1)
 		{
 			IsDynamicExecution = isDynamic;
 			m_Processor = p;
 			m_Callback = callBackFunction;
 			CallingLocation = sourceRef;
+			StackFrameIndex = stackFrameIndex;
 		}
 
 		/// <summary>
@@ -33,7 +35,7 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Gets the location of the code calling back 
+		/// Gets the location of the code calling back
 		/// </summary>
 		public SourceRef CallingLocation
 		{
@@ -44,14 +46,14 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// Gets or sets the additional data associated to this CLR function call.
 		/// </summary>
-		public object AdditionalData 
+		public object AdditionalData
 		{
 			get { return (m_Callback != null) ? m_Callback.AdditionalData : null; }
-			set 
+			set
 			{
 				if (m_Callback == null) throw new InvalidOperationException("Cannot set additional data on a context which has no callback");
-				m_Callback.AdditionalData = value; 
-			} 
+				m_Callback.AdditionalData = value;
+			}
 		}
 
 
@@ -113,7 +115,7 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Calls a callback function implemented in "classic way". 
+		/// Calls a callback function implemented in "classic way".
 		/// Useful to port C code from Lua, or C# code from UniLua and KopiLua.
 		/// Lua : http://www.lua.org/
 		/// UniLua : http://github.com/xebecnan/UniLua
@@ -206,7 +208,7 @@ namespace MoonSharp.Interpreter
 			if (symref == null)
 				return DynValue.Nil;
 
-			return m_Processor.GetGenericSymbol(symref);
+			return m_Processor.GetGenericSymbol(symref, StackFrameIndex);
 		}
 
 		/// <summary>
@@ -222,7 +224,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public SymbolRef FindSymbolByName(string symbol)
 		{
-			return m_Processor.FindSymbolByName(symbol);
+			return m_Processor.FindSymbolByName(symbol, StackFrameIndex);
 		}
 
 		/// <summary>

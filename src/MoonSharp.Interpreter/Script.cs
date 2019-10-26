@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using MoonSharp.Interpreter.CoreLib;
 using MoonSharp.Interpreter.Debugging;
@@ -87,7 +89,7 @@ namespace MoonSharp.Interpreter
 		public static ScriptOptions DefaultOptions { get; private set; }
 
 		/// <summary>
-		/// Gets access to the script options. 
+		/// Gets access to the script options.
 		/// </summary>
 		public ScriptOptions Options { get; private set; }
 
@@ -335,10 +337,16 @@ namespace MoonSharp.Interpreter
 
 		public DynValue DoString(string code, Table globalContext = null)
 		{
-			string codeFriendlyName = TtsDebugger.OnDoString(this);
-			DynValue result = DoString(code, globalContext, codeFriendlyName);
-			TtsDebugger.OnStringDone(this);
-			return result;
+			try
+			{
+				string codeFriendlyName = TtsDebugger.OnDoString(this);
+				DynValue result = DoString(code, globalContext, codeFriendlyName);
+				return result;
+			}
+			finally
+			{
+				TtsDebugger.OnStringDone(this);
+			}
 		}
 
 		/// <summary>
@@ -569,7 +577,7 @@ namespace MoonSharp.Interpreter
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the debugger is enabled.
-		/// Use this property if you want to disable the debugger for some 
+		/// Use this property if you want to disable the debugger for some
 		/// executions.
 		/// </summary>
 		public bool DebuggerEnabled
@@ -732,17 +740,17 @@ namespace MoonSharp.Interpreter
 		/// those cases where the execution engine is not really running - for example for dynamic expression
 		/// or calls from CLR to CLR callbacks
 		/// </summary>
-		internal ScriptExecutionContext CreateDynamicExecutionContext(CallbackFunction func = null)
+		public ScriptExecutionContext CreateDynamicExecutionContext(CallbackFunction func = null, int stackFrameIndex = -1)
 		{
-			return new ScriptExecutionContext(m_MainProcessor, func, null, isDynamic: true);
+			return new ScriptExecutionContext(m_MainProcessor, func, null, true, stackFrameIndex);
 		}
 
 		/// <summary>
-		/// MoonSharp (like Lua itself) provides a registry, a predefined table that can be used by any CLR code to 
-		/// store whatever Lua values it needs to store. 
-		/// Any CLR code can store data into this table, but it should take care to choose keys 
-		/// that are different from those used by other libraries, to avoid collisions. 
-		/// Typically, you should use as key a string GUID, a string containing your library name, or a 
+		/// MoonSharp (like Lua itself) provides a registry, a predefined table that can be used by any CLR code to
+		/// store whatever Lua values it needs to store.
+		/// Any CLR code can store data into this table, but it should take care to choose keys
+		/// that are different from those used by other libraries, to avoid collisions.
+		/// Typically, you should use as key a string GUID, a string containing your library name, or a
 		/// userdata with the address of a CLR object in your code.
 		/// </summary>
 		public Table Registry

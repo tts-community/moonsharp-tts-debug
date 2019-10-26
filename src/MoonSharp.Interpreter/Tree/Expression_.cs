@@ -52,7 +52,7 @@ namespace MoonSharp.Interpreter.Tree
 				lcontext.Lexer.Next();
 			}
 
-			return exps; 
+			return exps;
 		}
 
 		internal static Expression Expr(ScriptLoadingContext lcontext)

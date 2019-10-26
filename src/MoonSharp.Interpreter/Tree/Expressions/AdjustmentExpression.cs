@@ -3,7 +3,7 @@
 
 namespace MoonSharp.Interpreter.Tree.Expressions
 {
-	class AdjustmentExpression : Expression 
+	class AdjustmentExpression : Expression
 	{
 		private Expression expression;
 

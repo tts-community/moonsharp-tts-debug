@@ -1,11 +1,9 @@
 ﻿#if (!PCL) && ((!UNITY_5) || UNITY_STANDALONE)
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Debugging;
@@ -16,30 +14,37 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal class ScriptDebugSession : MoonSharpDebugSession, IAsyncDebuggerClient
 	{
-		const int SCOPE_LOCALS = 1;
-		const int SCOPE_SELF = 2;
+		const int SCOPE_GLOBAL = 0;
+		const int SCOPE_SELF = 1;
+		const int SCOPE_LOCAL = 2;
+		const int SCOPE_CLOSURE = 3;
 
-		const int VARIABLE_REFERENCE_FRAME_ID_OFFSET = 16;
-		const int VARIABLE_REFERENCE_SCOPE_OFFSET = VARIABLE_REFERENCE_FRAME_ID_OFFSET + 8;
+		const int VARIABLES_REFERENCE_FRAME_OFFSET = 21;
+		const int VARIABLES_REFERENCE_SCOPE_OFFSET = 29; // Scope is 2 bits, but variablesReference is [1, 2147483647] i.e. The sign bit is wasted.
 
-		const int VARIABLE_REFERENCE_FRAME_ID_MASK = 0xFF << VARIABLE_REFERENCE_FRAME_ID_OFFSET;
-		const int VARIABLE_REFERENCE_SCOPE_MASK = 0xFF << VARIABLE_REFERENCE_SCOPE_OFFSET;
+		const int VARIABLES_REFERENCE_FRAME_MASK = 0xFF << VARIABLES_REFERENCE_FRAME_OFFSET;
+		const int VARIABLES_REFERENCE_SCOPE_MASK = 0xFF << VARIABLES_REFERENCE_SCOPE_OFFSET;
+		const int VARIABLES_REFERENCE_INDEX_MASK = ~(VARIABLES_REFERENCE_FRAME_MASK | VARIABLES_REFERENCE_SCOPE_MASK); // 21 bits, 0 excluded, max 2097151
 
 		const int STOP_REASON_STEP = 0;
 		const int STOP_REASON_BREAKPOINT = 1;
 		const int STOP_REASON_EXCEPTION = 2;
 		const int STOP_REASON_PAUSED = 3;
 
+		readonly object m_Lock = new object();
 		readonly List<DynValue> m_Variables = new List<DynValue>();
+		List<WatchItem> m_CurrentCallStack = new List<WatchItem>();
+		int m_CurrentStackFrame = -1;
+		int m_PendingStackFrame = -1;
+
+		readonly VariablesScopeState m_Local = new VariablesScopeState("Local");
+		readonly VariablesScopeState m_Closure = new VariablesScopeState("Closure");
+
 		bool m_NotifyExecutionEnd = false;
 		bool m_RestartOnUnbind = false;
 
-		int stopReason = STOP_REASON_STEP;
-		ScriptRuntimeException runtimeException = null;
-
-		private int currentLocalsStackFrame = -1;
-		private int pendingLocalsStackFrame = -1;
-		private Response pendingLocalsResponse;
+		int m_StopReason = STOP_REASON_STEP;
+		ScriptRuntimeException m_RuntimeException;
 
 		public override string Name => Debugger.Name;
 
@@ -98,7 +103,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				supportsConditionalBreakpoints = false,
 
 				// This debug adapter does not support a side effect free evaluate request for data hovers.
-				supportsEvaluateForHovers = false,
+				supportsEvaluateForHovers = true,
 
 				// This debug adapter supports exception info.
 				supportsExceptionInfoRequest = true,
@@ -120,7 +125,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Continue(Response response, Table arguments)
 		{
-			stopReason = STOP_REASON_BREAKPOINT;
+			m_StopReason = STOP_REASON_BREAKPOINT;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.Run });
 			SendResponse(response);
 		}
@@ -152,9 +157,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			var frameId = getInt(args, "frameId", 0);
 			var context = getString(args, "context") ?? "hover";
 
-			if (frameId != 0 && context != "repl")
-				SendText("Warning : Evaluation of variables/watches is always done with the top-level scope.");
-
 			if (context == "repl" && expression.StartsWith("!"))
 			{
 				ExecuteRepl(expression.Substring(1));
@@ -162,13 +164,16 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				return;
 			}
 
-			DynValue v = Debugger.Evaluate(expression) ?? DynValue.Nil;
-			m_Variables.Add(v);
-
-			SendResponse(response, new EvaluateResponseBody(v.ToDebugPrintString(), m_Variables.Count)
+			lock (m_Lock)
 			{
-				type = v.Type.ToLuaDebuggerString()
-			});
+				var result = Debugger.Evaluate(expression, frameId) ?? DynValue.Nil;
+
+				m_Variables.Add(result);
+
+				SendResponse(response, new EvaluateResponseBody(result.ToDebugPrintString(), m_Variables.Count) {
+					type = result.Type.ToLuaDebuggerString()
+				});
+			}
 		}
 
 		private ExceptionDetails ExceptionDetails(ScriptRuntimeException ex)
@@ -185,12 +190,12 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		private bool IsRuntimeExceptionCurrent()
 		{
-			if (runtimeException == null)
+			if (m_RuntimeException == null)
 			{
 				return false;
 			}
 
-			IList<WatchItem> exceptionCallStack = runtimeException.CallStack;
+			IList<WatchItem> exceptionCallStack = m_RuntimeException.CallStack;
 			IList<WatchItem> debuggerCallStack = Debugger.GetWatches(WatchType.CallStack);
 
 			return exceptionCallStack.Count == debuggerCallStack.Count && exceptionCallStack.SequenceEqual(debuggerCallStack, new CallStackFrameComparator());
@@ -200,7 +205,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		{
 			if (IsRuntimeExceptionCurrent())
 			{
-				SendResponse(response, new ExceptionInfoResponseBody("runtime", "Runtime exception", "userUnhandled", ExceptionDetails(runtimeException)));
+				SendResponse(response, new ExceptionInfoResponseBody("runtime", "Runtime exception", "userUnhandled", ExceptionDetails(m_RuntimeException)));
 			}
 			else
 			{
@@ -277,7 +282,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Next(Response response, Table arguments)
 		{
-			stopReason = STOP_REASON_STEP;
+			m_StopReason = STOP_REASON_STEP;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.StepOver });
 			SendResponse(response);
 		}
@@ -289,7 +294,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Pause(Response response, Table arguments)
 		{
-			stopReason = STOP_REASON_PAUSED;
+			m_StopReason = STOP_REASON_PAUSED;
 			Debugger.PauseRequested = true;
 			SendResponse(response);
 			SendText("Pause pending -- will pause at first script statement.");
@@ -303,13 +308,15 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		public override void Scopes(Response response, Table arguments)
 		{
 			var scopes = new List<Scope>();
+			var frameId = getInt(arguments, "frameId", 0);
 
-			int frameId = getInt(arguments, "frameId", 0);
-
-			if (frameId >= 0 && frameId <= Debugger.GetWatches(WatchType.CallStack).Count)
+			if (frameId >= 0 && frameId < Debugger.GetWatches(WatchType.CallStack).Count)
 			{
-				scopes.Add(new Scope("Locals", (SCOPE_LOCALS << VARIABLE_REFERENCE_SCOPE_OFFSET) | (frameId << VARIABLE_REFERENCE_FRAME_ID_OFFSET)));
-				scopes.Add(new Scope("Self", (SCOPE_SELF << VARIABLE_REFERENCE_SCOPE_OFFSET) | (frameId << VARIABLE_REFERENCE_FRAME_ID_OFFSET)));
+				var frame = frameId + 1; // DAP treats variablesReference 0 as NULL, to avoid hitting that value with the SCOPE_GLOBAL we always +1 the frameId.
+				scopes.Add(new Scope("Local", (SCOPE_LOCAL << VARIABLES_REFERENCE_SCOPE_OFFSET) | (frame << VARIABLES_REFERENCE_FRAME_OFFSET)));
+				scopes.Add(new Scope("Closure", (SCOPE_CLOSURE << VARIABLES_REFERENCE_SCOPE_OFFSET) | (frame << VARIABLES_REFERENCE_FRAME_OFFSET)));
+				scopes.Add(new Scope("Global", (SCOPE_GLOBAL << VARIABLES_REFERENCE_SCOPE_OFFSET) | (frame << VARIABLES_REFERENCE_FRAME_OFFSET), true));
+				scopes.Add(new Scope("Self", (SCOPE_SELF << VARIABLES_REFERENCE_SCOPE_OFFSET) | (frame << VARIABLES_REFERENCE_FRAME_OFFSET)));
 			}
 
 			SendResponse(response, new ScopesResponseBody(scopes));
@@ -330,7 +337,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			if (path == null)
 			{
-				SendErrorResponse(response, 3010, "setBreakpoints: property 'source' is empty or misformed", null, false, true);
+				SendErrorResponse(response, 3010, "setBreakpoints: property 'source' is empty or malformed", null, false, true);
 				return;
 			}
 
@@ -427,14 +434,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void StepIn(Response response, Table arguments)
 		{
-			stopReason = STOP_REASON_STEP;
+			m_StopReason = STOP_REASON_STEP;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.StepIn });
 			SendResponse(response);
 		}
 
 		public override void StepOut(Response response, Table arguments)
 		{
-			stopReason = STOP_REASON_STEP;
+			m_StopReason = STOP_REASON_STEP;
 			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.StepOut });
 			SendResponse(response);
 		}
@@ -447,59 +454,92 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Variables(Response response, Table arguments)
 		{
-			int variablesReference = getInt(arguments, "variablesReference", -1);
-
-			int scope = (variablesReference & VARIABLE_REFERENCE_SCOPE_MASK) >> VARIABLE_REFERENCE_SCOPE_OFFSET;
-			int frameId = (variablesReference & VARIABLE_REFERENCE_FRAME_ID_MASK) >> VARIABLE_REFERENCE_FRAME_ID_OFFSET;
-
-			int index = variablesReference & ~(VARIABLE_REFERENCE_FRAME_ID_MASK | VARIABLE_REFERENCE_SCOPE_MASK);
-
-			if (scope == SCOPE_LOCALS)
+			lock (m_Lock)
 			{
-				if (frameId == currentLocalsStackFrame)
+				int variablesReference = getInt(arguments, "variablesReference", -1);
+
+				int scope = (variablesReference & VARIABLES_REFERENCE_SCOPE_MASK) >> VARIABLES_REFERENCE_SCOPE_OFFSET;
+				int frameId = ((variablesReference & VARIABLES_REFERENCE_FRAME_MASK) >> VARIABLES_REFERENCE_FRAME_OFFSET) - 1;
+				int index = variablesReference & VARIABLES_REFERENCE_INDEX_MASK;
+
+				if (scope == SCOPE_LOCAL || scope == SCOPE_CLOSURE)
 				{
-					SendLocalVariablesResponse(response);
-				}
-				else
-				{
-					if (pendingLocalsResponse != null)
+					var scopeState = scope == SCOPE_LOCAL ? m_Local : m_Closure;
+
+					if (frameId == scopeState.CurrentStackFrame)
 					{
-						SendErrorResponse(pendingLocalsResponse, 1200, "pending Variables request cancelled by newer request");
+						var watchType = scope == SCOPE_LOCAL ? WatchType.Locals : WatchType.Closure;
+						SendScopeVariablesResponse(watchType, response);
+					}
+					else
+					{
+						if (scopeState.PendingResponse != null)
+						{
+							SendErrorResponse(scopeState.PendingResponse, 1200, $"pending {scopeState.Name} (Variables) request cancelled");
+							scopeState.PendingResponse = null;
+						}
+
+						scopeState.PendingResponse = response;
+
+						if (m_PendingStackFrame != frameId)
+						{
+							var otherScopeState = scope == SCOPE_LOCAL ? m_Closure : m_Local;
+
+							if (otherScopeState.PendingResponse != null)
+							{
+								SendErrorResponse(otherScopeState.PendingResponse, 1200, $"pending {otherScopeState.Name} (Variables) request cancelled");
+								otherScopeState.PendingResponse = null;
+							}
+
+							m_PendingStackFrame = frameId;
+
+							if (frameId < Debugger.GetWatches(WatchType.CallStack).Count)
+							{
+								Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.ViewFrame, StackFrame = m_PendingStackFrame });
+							}
+							else
+							{
+								SendResponse(response, new VariablesResponseBody(new List<Variable>()));
+							}
+						}
 					}
 
-					pendingLocalsStackFrame = frameId;
-					pendingLocalsResponse = response;
-
-					Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.ViewFrame, StackFrame = pendingLocalsStackFrame });
+					return;
 				}
 
-				return;
-			}
+				var variables = new List<Variable>();
 
-			var variables = new List<Variable>();
+				if (scope == SCOPE_SELF)
+				{
+					var self = Debugger.Evaluate("self", m_CurrentStackFrame);
+					VariableInspector.InspectVariable(self, variables, m_Variables);
+				}
+				else if (scope == SCOPE_GLOBAL)
+				{
+					if (index == 0)
+					{
+						var global = Debugger.Evaluate("_G", m_CurrentStackFrame);
+						VariableInspector.InspectVariable(global, variables, m_Variables);
+					}
+					else if (index <= m_Variables.Count)
+					{
+						VariableInspector.InspectVariable(m_Variables[index - 1], variables, m_Variables);
+					}
+					else
+					{
+						variables.Add(new Variable("<error>", null, null));
+					}
+				}
 
-			if (scope == SCOPE_SELF)
-			{
-				DynValue v = Debugger.Evaluate("self");
-				VariableInspector.InspectVariable(v, variables, m_Variables);
+				SendResponse(response, new VariablesResponseBody(variables));
 			}
-			else if (scope == 0 && (index > m_Variables.Count || index <= 0))
-			{
-				variables.Add(new Variable("<error>", null, null));
-			}
-			else
-			{
-				VariableInspector.InspectVariable(m_Variables[index - 1], variables, m_Variables);
-			}
-
-			SendResponse(response, new VariablesResponseBody(variables));
 		}
 
-		void SendLocalVariablesResponse(Response response)
+		void SendScopeVariablesResponse(WatchType watchType, Response response)
 		{
 			var variables = new List<Variable>();
 
-			foreach (var w in Debugger.GetWatches(WatchType.Locals))
+			foreach (var w in Debugger.GetWatches(watchType))
 			{
 				DynValue value = w.Value ?? DynValue.Void;
 				var index = value.Type == DataType.Table ? m_Variables.Count + 1 : 0;
@@ -517,7 +557,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		void IAsyncDebuggerClient.SendStopEvent()
 		{
-			switch (stopReason)
+			switch (m_StopReason)
 			{
 				case STOP_REASON_STEP:
 					SendEvent(CreateStoppedEvent("step", "Paused after stepping"));
@@ -528,7 +568,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					break;
 
 				case STOP_REASON_EXCEPTION:
-					SendEvent(CreateStoppedEvent("exception", "Paused on exception", runtimeException?.Message));
+					SendEvent(CreateStoppedEvent("exception", "Paused on exception", m_RuntimeException?.Message));
 					break;
 
 				case STOP_REASON_PAUSED:
@@ -544,20 +584,52 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		void IAsyncDebuggerClient.OnWatchesUpdated(WatchType watchType, int stackFrameIndex)
 		{
-			if (watchType == WatchType.CallStack)
+			lock (m_Lock)
 			{
-				m_Variables.Clear();
-			}
-			else if (watchType == WatchType.Locals)
-			{
-				currentLocalsStackFrame = stackFrameIndex;
-
-				if (currentLocalsStackFrame == pendingLocalsStackFrame)
+				if (stackFrameIndex >= 0 && m_CurrentStackFrame != stackFrameIndex)
 				{
-					SendLocalVariablesResponse(pendingLocalsResponse);
+					m_CurrentStackFrame = stackFrameIndex;
+				}
 
-					pendingLocalsStackFrame = -1;
-					pendingLocalsResponse = null;
+				if (watchType == WatchType.CallStack)
+				{
+					var stackSize = m_CurrentCallStack.Count;
+					var updatedCallStack = Debugger.GetWatches(WatchType.CallStack);
+					var callStackChanged = false;
+
+					if (m_CurrentCallStack.Count != updatedCallStack.Count)
+					{
+						callStackChanged = true;
+					}
+					else
+					{
+						for (var i = 0; i < stackSize; i++)
+						{
+							if (m_CurrentCallStack[i].Location != updatedCallStack[i].Location)
+							{
+								callStackChanged = true;
+								break;
+							}
+						}
+					}
+
+					if (callStackChanged)
+					{
+						m_CurrentCallStack = updatedCallStack;
+						m_Variables.Clear();
+					}
+				}
+
+				if (watchType == WatchType.Locals || watchType == WatchType.Closure)
+				{
+					var scopeState = watchType == WatchType.Locals ? m_Local : m_Closure;
+					scopeState.CurrentStackFrame = m_CurrentStackFrame;
+
+					if (m_CurrentStackFrame == m_PendingStackFrame && scopeState.PendingResponse != null)
+					{
+						SendScopeVariablesResponse(watchType, scopeState.PendingResponse);
+						scopeState.PendingResponse = null;
+					}
 				}
 			}
 		}
@@ -586,8 +658,8 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public void OnException(ScriptRuntimeException ex)
 		{
-			stopReason = STOP_REASON_EXCEPTION;
-			runtimeException = ex;
+			m_StopReason = STOP_REASON_EXCEPTION;
+			m_RuntimeException = ex;
 		}
 
 		public void Unbind()
@@ -604,5 +676,19 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			m_RestartOnUnbind = false;
 		}
 	}
+
+	public class VariablesScopeState
+	{
+		public string Name { get; }
+
+		public int CurrentStackFrame { get; set; } = -1;
+		public Response PendingResponse { get; set; }
+
+		public VariablesScopeState(string name)
+		{
+			Name = name;
+		}
+	}
 }
+
 #endif

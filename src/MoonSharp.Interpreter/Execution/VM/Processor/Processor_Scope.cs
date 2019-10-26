@@ -18,7 +18,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		}
 
 
-		public DynValue GetGenericSymbol(SymbolRef symref)
+		public DynValue GetGenericSymbol(SymbolRef symref, int stackFrameIndex = -1)
 		{
 			switch (symref.i_Type)
 			{
@@ -27,9 +27,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 				case SymbolRefType.Global:
 					return GetGlobalSymbol(GetGenericSymbol(symref.i_Env), symref.i_Name);
 				case SymbolRefType.Local:
-					return GetTopNonClrFunction().LocalScope[symref.i_Index];
+					return GetStackNonClrFunction(stackFrameIndex).LocalScope[symref.i_Index];
 				case SymbolRefType.Upvalue:
-					return GetTopNonClrFunction().ClosureScope[symref.i_Index];
+					return GetStackNonClrFunction(stackFrameIndex).ClosureScope[symref.i_Index];
 				default:
 					throw new InternalErrorException("Unexpected {0} LRef at resolution: {1}", symref.i_Type, symref.i_Name);
 			}
@@ -52,7 +52,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		}
 
 
-		public void AssignGenericSymbol(SymbolRef symref, DynValue value)
+		public void AssignGenericSymbol(SymbolRef symref, DynValue value, int stackFrameIndex = -1)
 		{
 			switch (symref.i_Type)
 			{
@@ -61,7 +61,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 					break;
 				case SymbolRefType.Local:
 					{
-						var stackframe = GetTopNonClrFunction();
+						var stackframe = GetStackNonClrFunction(stackFrameIndex);
 
 						DynValue v = stackframe.LocalScope[symref.i_Index];
 						if (v == null)
@@ -72,7 +72,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 					break;
 				case SymbolRefType.Upvalue:
 					{
-						var stackframe = GetTopNonClrFunction();
+						var stackframe = GetStackNonClrFunction(stackFrameIndex);
 
 						DynValue v = stackframe.ClosureScope[symref.i_Index];
 						if (v == null)
@@ -90,8 +90,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 			}
 		}
 
-		CallStackItem GetTopNonClrFunction()
+		CallStackItem GetStackNonClrFunction(int stackFrameIndex)
 		{
+			if (stackFrameIndex >= 0)
+			{
+				var frame = stackFrameIndex < m_ExecutionStack.Count ? m_ExecutionStack.Peek(stackFrameIndex) : null;
+				return frame?.ClrFunction == null ? frame : null;
+			}
+
 			CallStackItem stackframe = null;
 
 			for (int i = 0; i < m_ExecutionStack.Count; i++)
@@ -106,11 +112,11 @@ namespace MoonSharp.Interpreter.Execution.VM
 		}
 
 
-		public SymbolRef FindSymbolByName(string name)
+		public SymbolRef FindSymbolByName(string name, int stackFrameIndex = -1)
 		{
 			if (m_ExecutionStack.Count > 0)
 			{
-				CallStackItem stackframe = GetTopNonClrFunction();
+				var stackframe = GetStackNonClrFunction(stackFrameIndex);
 
 				if (stackframe != null)
 				{

@@ -58,25 +58,23 @@ namespace MoonSharp.Interpreter
 		{
 			lock (detachOldLock)
 			{
-				if (detachTimer == null)
-				{
-					Timer timer = null;
-					timer = new Timer(s => {
-						lock (detachOldLock)
+				Timer timer = null;
+				timer = new Timer(s => {
+					lock (detachOldLock)
+					{
+						if (detachTimer == timer)
 						{
-							if (detachTimer == timer)
-							{
-								DetachOldScripts();
-							}
-							else
-							{
-								timer?.Dispose();
-							}
+							DetachOldScripts();
 						}
-					}, null, DETACH_OLD_TIMEOUT,  Timeout.Infinite);
+						else
+						{
+							timer?.Dispose();
+						}
+					}
+				}, null, DETACH_OLD_TIMEOUT,  Timeout.Infinite);
 
-					detachTimer = timer;
-				}
+				detachTimer?.Dispose();
+				detachTimer = timer;
 			}
 		}
 

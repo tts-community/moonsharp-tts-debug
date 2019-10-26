@@ -3,7 +3,7 @@ using MoonSharp.Interpreter.Execution;
 
 namespace MoonSharp.Interpreter.Tree.Expressions
 {
-	class ExprListExpression : Expression 
+	class ExprListExpression : Expression
 	{
 		List<Expression> expressions;
 

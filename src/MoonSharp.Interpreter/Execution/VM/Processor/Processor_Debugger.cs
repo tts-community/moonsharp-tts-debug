@@ -288,12 +288,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 			List<WatchItem> watches = Debugger_RefreshWatches(context, watchList);
 			List<WatchItem> vstack = Debugger_RefreshVStack();
 			List<WatchItem> locals = Debugger_RefreshLocals(stackFrameIndex);
+			List<WatchItem> closure = Debugger_RefreshClosure(stackFrameIndex);
 			List<WatchItem> threads = Debugger_RefreshThreads(context);
 
 			m_Debug.DebuggerAttached.Update(WatchType.CallStack, callStack, -1);
 			m_Debug.DebuggerAttached.Update(WatchType.Watches, watches, -1);
 			m_Debug.DebuggerAttached.Update(WatchType.VStack, vstack, -1);
 			m_Debug.DebuggerAttached.Update(WatchType.Locals, locals, stackFrameIndex);
+			m_Debug.DebuggerAttached.Update(WatchType.Closure, closure, stackFrameIndex);
 			m_Debug.DebuggerAttached.Update(WatchType.Threads, threads, -1);
 
 			if (hard)
@@ -334,25 +336,52 @@ namespace MoonSharp.Interpreter.Execution.VM
 		private List<WatchItem> Debugger_RefreshLocals(int stackFrameIndex)
 		{
 			List<WatchItem> locals = new List<WatchItem>();
-			var top = m_ExecutionStack.Peek(stackFrameIndex);
+			var frame = m_ExecutionStack.Peek(stackFrameIndex);
 
-			if (top != null && top.Debug_Symbols != null && top.LocalScope != null)
+			if (frame != null && frame.Debug_Symbols != null && frame.LocalScope != null)
 			{
-				int len = Math.Min(top.Debug_Symbols.Length, top.LocalScope.Length);
+				int len = Math.Min(frame.Debug_Symbols.Length, frame.LocalScope.Length);
 
 				for (int i = 0; i < len; i++)
 				{
 					locals.Add(new WatchItem()
 					{
 						IsError = false,
-						LValue = top.Debug_Symbols[i],
-						Value = top.LocalScope[i],
-						Name = top.Debug_Symbols[i].i_Name
+						LValue = frame.Debug_Symbols[i],
+						Value = frame.LocalScope[i],
+						Name = frame.Debug_Symbols[i].i_Name
 					});
 				}
 			}
 
 			return locals;
+		}
+
+		private List<WatchItem> Debugger_RefreshClosure(int stackFrameIndex)
+		{
+			List<WatchItem> variables = new List<WatchItem>();
+			var frame = m_ExecutionStack.Peek(stackFrameIndex);
+
+			var closure = frame?.ClosureScope;
+
+			if (closure != null)
+			{
+				for (int i = 0; i < closure.Symbols.Length; i++)
+				{
+					var name = closure.Symbols[i];
+					var symbolRef = SymbolRef.Upvalue(closure.Symbols[i], i);
+
+					variables.Add(new WatchItem()
+					{
+						IsError = false,
+						LValue = symbolRef,
+						Value = frame.ClosureScope[i],
+						Name = name
+					});
+				}
+			}
+
+			return variables;
 		}
 
 		private WatchItem Debugger_RefreshWatch(ScriptExecutionContext context, DynamicExpression dynExpr)

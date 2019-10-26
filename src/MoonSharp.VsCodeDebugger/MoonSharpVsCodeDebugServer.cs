@@ -115,7 +115,7 @@ namespace MoonSharp.VsCodeDebugger
 
 					if (session == null)
 					{
-						throw new ArgumentException("Cannot replace script that is not attached to this debug server.");
+						throw new ArgumentException($"Cannot replace script \"{name}\" that is not attached to this debug server.");
 					}
 
 					AsyncDebugger newDebugger = new AsyncDebugger(newScript, sourceFinder ?? session.Debugger.SourceFinder, name ?? session.Debugger.Name);
@@ -127,9 +127,9 @@ namespace MoonSharp.VsCodeDebugger
 
 					if (index < 0)
 					{
-						throw new ArgumentException("Cannot replace script that is not attached to this debug server.");
+						throw new ArgumentException($"Cannot replace script \"{name}\" that is not attached to this pending debug server.");
 					}
-					
+
 					previousScript.DetachDebugger();
 
 					AsyncDebugger previousDebugger = m_PendingDebuggerList[index];
@@ -156,29 +156,28 @@ namespace MoonSharp.VsCodeDebugger
 			{
 				if (m_MasterSession != null)
 				{
-					ListenerSessionPair listenerSessionPair;
-
-					try
-					{
-						listenerSessionPair = m_PortSessionDictionary.Values.FirstOrDefault(d => d.Session.Debugger?.Script == script);
-					}
-					catch (InvalidOperationException e)
-					{
-						throw new ArgumentException("Cannot detach script - not found.");
-					}
-
 					if (m_MasterSession.Debugger?.Script == script)
 					{
 						ReplaceListenerDebugger(m_Port, null);
 					}
 					else
 					{
+						ListenerSessionPair listenerSessionPair = m_PortSessionDictionary.Values.FirstOrDefault(d => d.Session.Debugger?.Script == script);
+
+						if (listenerSessionPair.Session == null)
+						{
+							throw new ArgumentException($"Cannot detach script that is not attached to this debug server.");
+						}
+
 						StopListener(listenerSessionPair.Session.Port);
 					}
 				}
 				else
 				{
-					m_PendingDebuggerList.RemoveAll((d) => d.Script == script);
+					if (m_PendingDebuggerList.RemoveAll((d) => d.Script == script) == 0)
+					{
+						throw new ArgumentException($"Cannot detach script that is not attached to this pending debug server.");
+					}
 				}
 			}
 		}
@@ -228,7 +227,7 @@ namespace MoonSharp.VsCodeDebugger
 		/// </summary>
 		public Action<string> Logger { get; set; }
 
-		
+
 		/// <summary>
 		/// Gets the debugger object. Obsolete, use the AttachToScript method instead.
 		/// </summary>
@@ -618,7 +617,7 @@ namespace MoonSharp.VsCodeDebugger
 
 		public Action<string> Logger { get; set; }
 
-		
+
 		[Obsolete("Use the Attach method instead.")]
 		public IDebugger GetDebugger()
 		{

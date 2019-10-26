@@ -23,9 +23,13 @@ namespace MoonSharp.Interpreter.Debugging
 		/// </summary>
 		Coroutines,
 		/// <summary>
-		/// Topmost local variables
+		/// Local variables for the current frame.
 		/// </summary>
 		Locals,
+		/// <summary>
+		/// Closure variables for the current frame.
+		/// </summary>
+		Closure,
 		/// <summary>
 		/// The list of currently active coroutines
 		/// </summary>

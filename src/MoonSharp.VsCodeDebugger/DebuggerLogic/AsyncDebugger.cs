@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Debugging;
 
@@ -12,12 +13,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal class AsyncDebugger : IDebugger
 	{
-		private static object s_AsyncDebuggerIdLock = new object();
-		private static int s_AsyncDebuggerIdCounter = 0;
+		private static volatile int s_AsyncDebuggerIdCounter = 0;
 
-		object m_Lock = new object();
-		IAsyncDebuggerClient m_Client__;
-		DebuggerAction m_PendingAction;
+		readonly object m_ClientLock = new object();
+		IAsyncDebuggerClient m_Client;
+
+		readonly object m_ActionQueueLock = new object();
+		readonly Queue<DebuggerAction> m_ActionQueue = new Queue<DebuggerAction>();
+
 		int m_PrevInstructionPtr = -1;
 
 		List<WatchItem>[] m_WatchItems;
@@ -42,9 +45,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public AsyncDebugger(Script script, Func<SourceCode, string> sourceFinder, string name)
 		{
-			lock (s_AsyncDebuggerIdLock)
-				Id = s_AsyncDebuggerIdCounter++;
-
+			Id = Interlocked.Increment(ref s_AsyncDebuggerIdCounter);
 			SourceFinder = sourceFinder;
 			ErrorRegex = new Regex(@"\A.*\Z");
 			Script = script;
@@ -58,24 +59,24 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public IAsyncDebuggerClient Client
 		{
-			get { return m_Client__; }
+			get => m_Client;
 			set
 			{
-				if (m_Client__ != value)
+				if (m_Client != value)
 				{
-					lock (m_Lock)
+					lock (m_ClientLock)
 					{
-						IAsyncDebuggerClient previousClient = m_Client__;
+						IAsyncDebuggerClient previousClient = m_Client;
 
-						m_Client__ = value;
+						m_Client = value;
 
 						previousClient?.Unbind();
 
-						if (m_Client__ != null)
+						if (m_Client != null)
 						{
 							for (int i = 0; i < Script.SourceCodeCount; i++)
 								if (m_SourcesMap.ContainsKey(i))
-									m_Client__.OnSourceCodeChanged(i);
+									m_Client.OnSourceCodeChanged(i);
 						}
 					}
 				}
@@ -90,7 +91,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			{
 				m_PrevInstructionPtr = ip;
 
-				lock (m_Lock)
+				lock (m_ClientLock)
 				{
 					Client?.SendStopEvent();
 				}
@@ -98,18 +99,16 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			while (true)
 			{
-				lock (m_Lock)
+				if (Client == null)
 				{
-					if (Client == null)
-					{
-						return new DebuggerAction() { Action = DebuggerAction.ActionType.Run };
-					}
+					return new DebuggerAction { Action = DebuggerAction.ActionType.Run };
+				}
 
-					if (m_PendingAction != null)
+				lock (m_ActionQueueLock)
+				{
+					if (m_ActionQueue.Count > 0)
 					{
-						var action = m_PendingAction;
-						m_PendingAction = null;
-						return action;
+						return m_ActionQueue.Dequeue();
 					}
 				}
 
@@ -120,16 +119,9 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public void QueueAction(DebuggerAction action)
 		{
-			while (true)
+			lock (m_ActionQueueLock)
 			{
-				lock (m_Lock)
-					if (m_PendingAction == null)
-					{
-						m_PendingAction = action;
-						break;
-					}
-
-				Sleep(10);
+				m_ActionQueue.Enqueue(action);
 			}
 		}
 
@@ -162,7 +154,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		void IDebugger.RefreshBreakpoints(IEnumerable<SourceRef> refs)
 		{
-
 		}
 
 		void IDebugger.SetByteCode(string[] byteCode)
@@ -206,10 +197,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				m_SourcesOverride[sourceCode.SourceID] = file;
 			}
 
-
-			lock (m_Lock)
-				if (Client != null)
-					Client.OnSourceCodeChanged(sourceCode.SourceID);
+			lock (m_ClientLock)
+			{
+				Client?.OnSourceCodeChanged(sourceCode.SourceID);
+			}
 		}
 
 		private string GetFooterForTempFile()
@@ -238,18 +229,24 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		void IDebugger.SignalExecutionEnded()
 		{
-			lock (m_Lock)
-				if (Client != null)
-					Client.OnExecutionEnded();
+			lock (m_ClientLock)
+			{
+				Client?.OnExecutionEnded();
+			}
 		}
 
 		bool IDebugger.SignalRuntimeException(ScriptRuntimeException ex)
 		{
-			lock (m_Lock)
+			lock (m_ClientLock)
+			{
 				if (Client == null)
+				{
 					return false;
+				}
 
-			Client.OnException(ex);
+				Client.OnException(ex);
+			}
+
 			PauseRequested = ErrorRegex.IsMatch(ex.Message);
 			return PauseRequested;
 		}
@@ -261,9 +258,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			list.Clear();
 			list.AddRange(items);
 
-			lock (m_Lock)
-				if (Client != null)
-					Client.OnWatchesUpdated(watchType, stackFrameIndex);
+			lock (m_ClientLock)
+			{
+				Client?.OnWatchesUpdated(watchType, stackFrameIndex);
+			}
 		}
 
 
@@ -300,10 +298,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			DebugService = debugService;
 		}
 
-		public DynValue Evaluate(string expression)
+		public DynValue Evaluate(string expression, int stackFrameIndex)
 		{
-			DynamicExpression expr = CreateDynExpr(expression);
-			return expr.Evaluate();
+			var expr = CreateDynExpr(expression);
+			var context = expr.OwnerScript.CreateDynamicExecutionContext(null, stackFrameIndex);
+			return expr.Evaluate(context);
 		}
 
 		DebuggerCaps IDebugger.GetDebuggerCaps()
