@@ -243,6 +243,13 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 		protected virtual void SendMessage(ProtocolMessage message)
 		{
+			var outputStream = _outputStream;
+
+			if (outputStream == null)
+			{
+				return;
+			}
+
 			message.seq = _sequenceNumber++;
 
 			if (TRACE_RESPONSE && message.type == "response")
@@ -256,10 +263,11 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			}
 
 			var data = ConvertToBytes(message);
+
 			try
 			{
-				_outputStream.Write(data, 0, data.Length);
-				_outputStream.Flush();
+				outputStream.Write(data, 0, data.Length);
+				outputStream.Flush();
 			}
 			catch (Exception)
 			{

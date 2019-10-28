@@ -11,7 +11,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal class DetachedDebugSession : MoonSharpDebugSession
 	{
-		public override string Name => "Detached";
+		public override string Name => "(Detached)";
 
 		internal DetachedDebugSession(int port, MoonSharpVsCodeDebugServer server) : base(port, server, null)
 		{
@@ -25,9 +25,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					 System.Diagnostics.Process.GetCurrentProcess().ProcessName,
 					 System.Diagnostics.Process.GetCurrentProcess().Id);
 
-			SendText("No script is set as default for debugging; use the debug console to select the script to debug.\n");
-
-			SendList();
+			SendText("There are presently no scripts attached to the debugger.\n");
 
 			SendResponse(response, new Capabilities()
 			{
@@ -54,21 +52,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendEvent(new InitializedEvent());
 		}
 
-		private void SendList()
-		{
-			int currId = Server.CurrentId ?? -1000;
-
-			SendText("==========================================================");
-
-			foreach (var pair in Server.GetAttachedDebuggersByIdAndName())
-			{
-				string isdef = (pair.Key == currId) ? " (default)" : "";
-				SendText("{0} : {1}{2}", pair.Key.ToString().PadLeft(9), pair.Value, isdef);
-			}
-			SendText("");
-			SendText("Type the number of the script to debug, or '!' to refresh");
-		}
-
 		public override void Attach(Response response, Table arguments)
 		{
 			SendResponse(response);
@@ -76,8 +59,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Continue(Response response, Table arguments)
 		{
-			SendList();
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void Disconnect(Response response, Table arguments)
@@ -85,52 +67,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response);
 		}
 
-		private static string getString(Table args, string property, string dflt = null)
-		{
-			var s = (string)args[property];
-			if (s == null)
-			{
-				return dflt;
-			}
-			s = s.Trim();
-			if (s.Length == 0)
-			{
-				return dflt;
-			}
-			return s;
-		}
-
 		public override void Evaluate(Response response, Table args)
 		{
-			var expression = getString(args, "expression");
-			var context = getString(args, "context") ?? "hover";
-
-			if (context == "repl")
-				ExecuteRepl(expression);
-
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void ExceptionInfo(Response response, Table arguments)
 		{
 			SendResponse(response);
-		}
-
-		private void ExecuteRepl(string cmd)
-		{
-			int id = 0;
-			if (int.TryParse(cmd, out id))
-			{
-				Server.CurrentId = id;
-
-				SendText("Re-attach the debugger to debug the selected script.");
-
-				Terminate();
-			}
-			else
-			{
-				SendList();
-			}
 		}
 
 		public override void Launch(Response response, Table arguments)
@@ -140,14 +84,12 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Next(Response response, Table arguments)
 		{
-			SendList();
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void Pause(Response response, Table arguments)
 		{
-			SendList();
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void Source(Response response, Table arguments)
@@ -162,30 +104,27 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void SetBreakpoints(Response response, Table args)
 		{
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void StackTrace(Response response, Table args)
 		{
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void StepIn(Response response, Table arguments)
 		{
-			SendList();
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void StepOut(Response response, Table arguments)
 		{
-			SendList();
-			SendResponse(response);
+			SendErrorResponse(response, 1, "Debug session is not attached to a script");
 		}
 
 		public override void Threads(Response response, Table arguments)
 		{
-			var threads = new List<Thread>() { new Thread(0, "Main Thread") };
-			SendResponse(response, new ThreadsResponseBody(threads));
+			SendResponse(response);
 		}
 
 		public override void Variables(Response response, Table arguments)

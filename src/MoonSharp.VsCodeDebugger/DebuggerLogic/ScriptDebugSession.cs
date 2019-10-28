@@ -112,15 +112,24 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				exceptionBreakpointFilters = new object[0]
 			});
 
+			Debugger.Client = this;
+
 			// Debugger is ready to accept breakpoints immediately
 			SendEvent(new InitializedEvent());
-
-			Debugger.Client = this;
 		}
 
 		public override void Attach(Response response, Table arguments)
 		{
 			SendResponse(response);
+
+			if (Debugger.IsStopped)
+			{
+				SendStopEvent();
+			}
+			else
+			{
+				SendEvent(new ContinuedEvent(0));
+			}
 		}
 
 		public override void Continue(Response response, Table arguments)
@@ -555,7 +564,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response, new VariablesResponseBody(variables));
 		}
 
-		void IAsyncDebuggerClient.SendStopEvent()
+		public void SendStopEvent()
 		{
 			switch (m_StopReason)
 			{
@@ -664,8 +673,12 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public void Unbind()
 		{
-			Debugger.Client = null;
-			SendTerminateEvent(m_RestartOnUnbind);
+			if (Debugger.Client == this)
+			{
+				Debugger.Client = null;
+				SendTerminateEvent(m_RestartOnUnbind);
+			}
+
 			Stop();
 		}
 

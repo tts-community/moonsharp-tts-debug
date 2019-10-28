@@ -178,6 +178,16 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		}
 	}
 
+	public class ContinuedEvent : Event
+	{
+		public ContinuedEvent(int threadId)
+			: base("continued", new {
+				threadId
+			})
+		{
+		}
+	}
+
 	public class StoppedEvent : Event
 	{
 		public StoppedEvent(int threadId, string reason, string description, string text = null)

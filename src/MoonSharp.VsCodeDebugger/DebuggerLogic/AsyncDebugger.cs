@@ -40,6 +40,8 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		public Regex ErrorRegex { get; set; }
 
 		public bool PauseRequested { get; set; }
+		public bool IsStopped { get; private set; }
+
 		public int Id { get; }
 
 
@@ -85,9 +87,12 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		DebuggerAction IDebugger.GetAction(int ip, SourceRef sourceref)
 		{
-			PauseRequested = false;
+			var wasPausedRequested = PauseRequested;
 
-			if (ip != m_PrevInstructionPtr)
+			PauseRequested = false;
+			IsStopped = true;
+
+			if (wasPausedRequested || ip != m_PrevInstructionPtr)
 			{
 				m_PrevInstructionPtr = ip;
 
@@ -101,6 +106,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			{
 				if (Client == null)
 				{
+					IsStopped = false;
 					return new DebuggerAction { Action = DebuggerAction.ActionType.Run };
 				}
 
@@ -108,10 +114,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				{
 					if (m_ActionQueue.Count > 0)
 					{
-						return m_ActionQueue.Dequeue();
+						var action = m_ActionQueue.Dequeue();
+						IsStopped = action.Action != DebuggerAction.ActionType.Run;
+						return action;
 					}
 				}
 
+				IsStopped = true;
 				Sleep(10);
 			}
 		}

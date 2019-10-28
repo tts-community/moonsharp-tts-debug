@@ -2,17 +2,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading;
 using MoonSharp.VsCodeDebugger.DebuggerLogic;
 using MoonSharp.Interpreter;
-using MoonSharp.Interpreter.CoreLib;
 using MoonSharp.Interpreter.Debugging;
-using MoonSharp.VsCodeDebugger.SDK;
 
 namespace MoonSharp.VsCodeDebugger
 {
@@ -394,17 +389,19 @@ namespace MoonSharp.VsCodeDebugger
 
 		private void StopListener(int port)
 		{
-			MoonSharpDebugSession session = m_PortSessionDictionary[port].Session;
+			var listener = m_PortSessionDictionary[port].Listener;
+			var session = m_PortSessionDictionary[port].Session;
+
 			m_PortSessionDictionary.Remove(port); // Prevent listener accepting further connections
 
-			if (m_PortSessionDictionary[port].Listener.Server.IsBound)
+			if (listener.Server.IsBound)
 			{
 				session.Debugger?.Script?.DetachDebugger();
 				session.Terminate();
 			}
 			else
 			{
-				m_PortSessionDictionary[port].Listener.Stop();
+				listener.Stop();
 			}
 		}
 
@@ -496,8 +493,18 @@ namespace MoonSharp.VsCodeDebugger
 							}
 						}
 
-						clientSocket.Shutdown(SocketShutdown.Both);
-						clientSocket.Close();
+						try
+						{
+							clientSocket.Shutdown(SocketShutdown.Both);
+						}
+						catch (SocketException)
+						{
+							// ignore
+						}
+						finally
+						{
+							clientSocket.Close();
+						}
 
 						Log("[{0}] : Client connection closed", sessionIdentifier);
 					});
