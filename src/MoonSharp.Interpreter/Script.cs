@@ -337,15 +337,20 @@ namespace MoonSharp.Interpreter
 
 		public DynValue DoString(string code, Table globalContext = null)
 		{
+			string codeFriendlyName = null;
+
 			try
 			{
-				string codeFriendlyName = TtsDebugger.OnDoString(this);
+				codeFriendlyName = TtsDebugger.OnDoString(this);
 				DynValue result = DoString(code, globalContext, codeFriendlyName);
 				return result;
 			}
 			finally
 			{
-				TtsDebugger.OnStringDone(this);
+				if (codeFriendlyName != null)
+				{
+					TtsDebugger.OnStringDone(this);
+				}
 			}
 		}
 
