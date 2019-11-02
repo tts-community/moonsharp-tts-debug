@@ -248,12 +248,22 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 	public class Capabilities : ResponseBody
 	{
-		public bool supportsConfigurationDoneRequest;
-		public bool supportsFunctionBreakpoints;
-		public bool supportsConditionalBreakpoints;
-		public bool supportsEvaluateForHovers;
-		public object[] exceptionBreakpointFilters;
-		public bool supportsExceptionInfoRequest;
+		public bool supportsConfigurationDoneRequest { get; }
+		public bool supportsFunctionBreakpoints { get; }
+		public bool supportsConditionalBreakpoints { get; }
+		public bool supportsEvaluateForHovers { get; }
+		public object[] exceptionBreakpointFilters { get; }
+		public bool supportsExceptionInfoRequest { get; }
+
+		public Capabilities(bool supportsConfigurationDoneRequest, bool supportsFunctionBreakpoints, bool supportsConditionalBreakpoints, bool supportsEvaluateForHovers, object[] exceptionBreakpointFilters, bool supportsExceptionInfoRequest)
+		{
+			this.supportsConfigurationDoneRequest = supportsConfigurationDoneRequest;
+			this.supportsFunctionBreakpoints = supportsFunctionBreakpoints;
+			this.supportsConditionalBreakpoints = supportsConditionalBreakpoints;
+			this.supportsEvaluateForHovers = supportsEvaluateForHovers;
+			this.exceptionBreakpointFilters = exceptionBreakpointFilters;
+			this.supportsExceptionInfoRequest = supportsExceptionInfoRequest;
+		}
 	}
 
 	public class ErrorResponseBody : ResponseBody
@@ -377,6 +387,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		private bool _clientLinesStartAt1 = true;
 		private bool _clientPathsAreURI = false;
 
+		private bool _initialized = false;
 
 		public DebugSession()
 		{
@@ -384,12 +395,30 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 		public void SendResponse(Response response, ResponseBody body = null)
 		{
+			if (!_initialized)
+			{
+				if (response.command != "initialize")
+				{
+					return;
+				}
+
+				_initialized = true;
+			}
+
 			if (body != null)
 			{
 				response.SetBody(body);
 			}
 
 			SendMessage(response);
+		}
+
+		public override void SendEvent(Event e)
+		{
+			if (_initialized)
+			{
+				base.SendEvent(e);
+			}
 		}
 
 		public void SendErrorResponse(Response response, int id, string format, object arguments = null, bool user = true, bool telemetry = false)
@@ -447,6 +476,10 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 					case "disconnect":
 						Disconnect(response, args);
+						break;
+
+					case "configurationDone":
+						ConfigurationDone(response, args);
 						break;
 
 					case "next":
@@ -533,12 +566,16 @@ namespace MoonSharp.VsCodeDebugger.SDK
 
 		public abstract void Disconnect(Response response, Table arguments);
 
+		public abstract void ConfigurationDone(Response response, Table arguments);
+
 		public virtual void SetFunctionBreakpoints(Response response, Table arguments)
 		{
+			SendResponse(response);
 		}
 
 		public virtual void SetExceptionBreakpoints(Response response, Table arguments)
 		{
+			SendResponse(response);
 		}
 
 		public abstract void SetBreakpoints(Response response, Table arguments);

@@ -26,13 +26,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		const int VARIABLES_REFERENCE_SCOPE_MASK = 0xFF << VARIABLES_REFERENCE_SCOPE_OFFSET;
 		const int VARIABLES_REFERENCE_INDEX_MASK = ~(VARIABLES_REFERENCE_FRAME_MASK | VARIABLES_REFERENCE_SCOPE_MASK); // 21 bits, 0 excluded, max 2097151
 
-		const int STOP_REASON_STEP = 0;
-		const int STOP_REASON_BREAKPOINT = 1;
-		const int STOP_REASON_EXCEPTION = 2;
-		const int STOP_REASON_PAUSED = 3;
+		const int STOP_REASON_PAUSED = 0;
+		const int STOP_REASON_STEP = 1;
+		const int STOP_REASON_BREAKPOINT = 2;
+		const int STOP_REASON_EXCEPTION = 3;
 
 		readonly object m_Lock = new object();
-		readonly List<DynValue> m_Variables = new List<DynValue>();
+		readonly List<object> m_Variables = new List<object>();
 		List<WatchItem> m_CurrentCallStack = new List<WatchItem>();
 		int m_CurrentStackFrame = -1;
 		int m_PendingStackFrame = -1;
@@ -43,7 +43,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		bool m_NotifyExecutionEnd = false;
 		bool m_RestartOnUnbind = false;
 
-		int m_StopReason = STOP_REASON_STEP;
+		int m_StopReason = STOP_REASON_PAUSED;
 		ScriptRuntimeException m_RuntimeException;
 
 		public override string Name => Debugger.Name;
@@ -76,6 +76,15 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public override void Initialize(Response response, Table args)
 		{
+			SendResponse(response, new Capabilities(
+				true,
+				false,
+				false,
+				true,
+				new object[0],
+				true
+			));
+
 #if DOTNET_CORE
 			SendText("Connected to MoonSharp {0} [{1}]",
 					 Script.VERSION,
@@ -91,26 +100,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendText("Debugging script '{0}'; use the debug console to debug another script.", Debugger.Name);
 
 			SendText("Type '!help' in the Debug Console for available commands.");
-
-			SendResponse(response, new Capabilities() {
-				// This debug adapter does not need the configurationDoneRequest.
-				supportsConfigurationDoneRequest = false,
-
-				// This debug adapter does not support function breakpoints.
-				supportsFunctionBreakpoints = false,
-
-				// This debug adapter doesn't support conditional breakpoints.
-				supportsConditionalBreakpoints = false,
-
-				// This debug adapter does not support a side effect free evaluate request for data hovers.
-				supportsEvaluateForHovers = true,
-
-				// This debug adapter supports exception info.
-				supportsExceptionInfoRequest = true,
-
-				// This debug adapter does not support exception breakpoint filters
-				exceptionBreakpointFilters = new object[0]
-			});
 
 			Debugger.Client = this;
 
@@ -135,13 +124,19 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		public override void Continue(Response response, Table arguments)
 		{
 			m_StopReason = STOP_REASON_BREAKPOINT;
-			Debugger.QueueAction(new DebuggerAction() { Action = DebuggerAction.ActionType.Run });
+			Debugger.QueueAction(new DebuggerAction { Action = DebuggerAction.ActionType.Run });
 			SendResponse(response);
 		}
 
 		public override void Disconnect(Response response, Table arguments)
 		{
 			Debugger.Client = null;
+			SendResponse(response);
+		}
+
+		public override void ConfigurationDone(Response response, Table arguments)
+		{
+			Debugger.QueueAction(new DebuggerAction { Action = DebuggerAction.ActionType.Run });
 			SendResponse(response);
 		}
 
@@ -568,6 +563,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		{
 			switch (m_StopReason)
 			{
+				case STOP_REASON_PAUSED:
+					SendEvent(CreateStoppedEvent("pause", "Paused by debugger"));
+					break;
+
 				case STOP_REASON_STEP:
 					SendEvent(CreateStoppedEvent("step", "Paused after stepping"));
 					break;
@@ -578,10 +577,6 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 				case STOP_REASON_EXCEPTION:
 					SendEvent(CreateStoppedEvent("exception", "Paused on exception", m_RuntimeException?.Message));
-					break;
-
-				case STOP_REASON_PAUSED:
-					SendEvent(CreateStoppedEvent("pause", "Paused by debugger"));
 					break;
 
 				default:

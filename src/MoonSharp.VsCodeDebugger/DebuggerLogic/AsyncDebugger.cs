@@ -87,12 +87,12 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		DebuggerAction IDebugger.GetAction(int ip, SourceRef sourceref)
 		{
-			var wasPausedRequested = PauseRequested;
+			var pauseRequested = PauseRequested;
 
 			PauseRequested = false;
 			IsStopped = true;
 
-			if (wasPausedRequested || ip != m_PrevInstructionPtr)
+			if (pauseRequested || ip != m_PrevInstructionPtr)
 			{
 				m_PrevInstructionPtr = ip;
 

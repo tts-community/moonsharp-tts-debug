@@ -277,7 +277,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		{
 			if (stackFrameIndex < 0)
 			{
-				stackFrameIndex = m_ExecutionStack.Count - 1;
+				stackFrameIndex = 0;
 			}
 
 			SourceRef sref = GetCurrentSourceRef(instructionPtr);

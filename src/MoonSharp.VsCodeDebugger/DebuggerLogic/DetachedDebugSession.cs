@@ -1,9 +1,5 @@
 ﻿#if (!UNITY_5) || UNITY_STANDALONE
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter;
 using MoonSharp.VsCodeDebugger.SDK;
 
@@ -27,26 +23,14 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			SendText("There are presently no scripts attached to the debugger.\n");
 
-			SendResponse(response, new Capabilities()
-			{
-				// This debug adapter does not need the configurationDoneRequest.
-				supportsConfigurationDoneRequest = false,
-
-				// This debug adapter does not support function breakpoints.
-				supportsFunctionBreakpoints = false,
-
-				// This debug adapter doesn't support conditional breakpoints.
-				supportsConditionalBreakpoints = false,
-
-				// This debug adapter does not support a side effect free evaluate request for data hovers.
-				supportsEvaluateForHovers = true,
-
-				// This debug adapter does not support exception info.
-				supportsExceptionInfoRequest = false,
-
-				// This debug adapter does not support exception breakpoint filters
-				exceptionBreakpointFilters = new object[0]
-			});
+			SendResponse(response, new Capabilities(
+				true,
+				false,
+				false,
+				true,
+				new object[0],
+				true
+			));
 
 			// Debugger is ready to accept breakpoints immediately
 			SendEvent(new InitializedEvent());
@@ -63,6 +47,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		}
 
 		public override void Disconnect(Response response, Table arguments)
+		{
+			SendResponse(response);
+		}
+
+		public override void ConfigurationDone(Response response, Table arguments)
 		{
 			SendResponse(response);
 		}

@@ -8,7 +8,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal static class VariableInspector
 	{
-		internal static void InspectVariable(DynValue v, List<Variable> variables, List<DynValue> structuredVariables)
+		private static void InspectDynValue(DynValue v, List<Variable> variables, List<object> structuredVariables)
 		{
 			if (v.Type != DataType.Table)
 			{
@@ -31,19 +31,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					variables.Add(new Variable("(upvalues type)", v.Function.GetUpvaluesType().ToString(), null));
 					break;
 				case DataType.Table:
-					foreach (TablePair p in v.Table.Pairs)
-					{
-						var index = p.Value.Type == DataType.Table ? structuredVariables.Count + 1 : 0;
-
-						if (index > 0)
-						{
-							structuredVariables.Add(p.Value);
-						}
-
-						var key = p.Key.Type == DataType.String ? p.Key.ToDebugPrintString() : "[" + p.Key.ToDebugPrintString() + "]";
-						variables.Add(new Variable(key, p.Value.ToDebugPrintString(), p.Value.Type.ToLuaDebuggerString(), index));
-					}
-
+					InspectTable(v.Table, variables, structuredVariables);
 					break;
 				case DataType.UserData:
 					if (v.UserData.Descriptor != null)
@@ -74,6 +62,40 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				case DataType.String:
 				default:
 					break;
+			}
+		}
+
+		private static void InspectTable(Table table, List<Variable> variables, List<object> structuredVariables)
+		{
+			if (table.MetaTable != null)
+			{
+				structuredVariables.Add(table.MetaTable);
+				variables.Add(new Variable("(metatable)", "CLR Table", "Table", structuredVariables.Count));
+			}
+
+			foreach (TablePair p in table.Pairs)
+			{
+				var index = p.Value.Type == DataType.Table ? structuredVariables.Count + 1 : 0;
+
+				if (index > 0)
+				{
+					structuredVariables.Add(p.Value);
+				}
+
+				var key = p.Key.Type == DataType.String ? p.Key.ToDebugPrintString() : "[" + p.Key.ToDebugPrintString() + "]";
+				variables.Add(new Variable(key, p.Value.ToDebugPrintString(), p.Value.Type.ToLuaDebuggerString(), index));
+			}
+		}
+
+		internal static void InspectVariable(object v, List<Variable> variables, List<object> structuredVariables)
+		{
+			if (v is DynValue dynValue)
+			{
+				InspectDynValue(dynValue, variables, structuredVariables);
+			}
+			else if (v is Table table)
+			{
+				InspectTable(table, variables, structuredVariables);
 			}
 		}
 	}

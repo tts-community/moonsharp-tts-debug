@@ -119,6 +119,8 @@ namespace MoonSharp.VsCodeDebugger.SDK
      */
 	public abstract class ProtocolServer
 	{
+		public bool ClientConnected => _outputStream != null;
+
 		public bool TRACE;
 		public bool TRACE_RESPONSE;
 
@@ -148,10 +150,10 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		public void ProcessLoop(Stream inputStream, Stream outputStream)
 		{
 			_outputStream = outputStream;
+			_stopRequested = false;
 
 			byte[] buffer = new byte[BUFFER_SIZE];
 
-			_stopRequested = false;
 			while (!_stopRequested)
 			{
 				var read = inputStream.Read(buffer, 0, buffer.Length);
@@ -168,6 +170,8 @@ namespace MoonSharp.VsCodeDebugger.SDK
 					ProcessData();
 				}
 			}
+
+			_outputStream = null;
 		}
 
 		public void Stop()
@@ -175,7 +179,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			_stopRequested = true;
 		}
 
-		public void SendEvent(Event e)
+		public virtual void SendEvent(Event e)
 		{
 			SendMessage(e);
 		}
