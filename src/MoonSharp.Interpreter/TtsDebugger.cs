@@ -216,7 +216,7 @@ namespace MoonSharp.Interpreter
 		private static string SourceCodeToTempPath(SourceCode sourceCode)
 		{
 			var scriptName = scriptNames[sourceCode.OwnerScript];
-			var sourceName = scriptName == sourceCode.Name ? scriptName : $"{scriptName}_{sourceCode.Name}";
+			var sourceName = (scriptName == sourceCode.Name ? scriptName : $"{scriptName}_{sourceCode.Name}").Replace(Path.DirectorySeparatorChar, '_');
 
 			var path = Path.Combine(tempPath, sourceName + ".ttslua");
 
