@@ -161,22 +161,17 @@ namespace MoonSharp.VsCodeDebugger
 					}
 					else
 					{
-						ListenerSessionPair listenerSessionPair = m_PortSessionDictionary.Values.FirstOrDefault(d => d.Session.Debugger?.Script == script);
+						var listenerSessionPair = m_PortSessionDictionary.Values.FirstOrDefault(d => d.Session.Debugger?.Script == script);
 
-						if (listenerSessionPair.Session == null)
+						if (listenerSessionPair.Session != null)
 						{
-							throw new ArgumentException($"Cannot detach script that is not attached to this debug server.");
+							StopListener(listenerSessionPair.Session.Port);
 						}
-
-						StopListener(listenerSessionPair.Session.Port);
 					}
 				}
 				else
 				{
-					if (m_PendingDebuggerList.RemoveAll((d) => d.Script == script) == 0)
-					{
-						throw new ArgumentException($"Cannot detach script that is not attached to this pending debug server.");
-					}
+					m_PendingDebuggerList.RemoveAll((d) => d.Script == script);
 				}
 			}
 		}
