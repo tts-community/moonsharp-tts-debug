@@ -662,8 +662,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		public void OnException(ScriptRuntimeException ex)
 		{
-			m_StopReason = STOP_REASON_EXCEPTION;
-			m_RuntimeException = ex;
+			if (Debugger.ErrorRegex.IsMatch(ex.Message))
+			{
+				m_StopReason = STOP_REASON_EXCEPTION;
+				m_RuntimeException = ex;
+			}
 		}
 
 		public void Unbind()
