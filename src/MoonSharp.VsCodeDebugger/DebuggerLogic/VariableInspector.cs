@@ -43,7 +43,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 						variables.Add(new Variable("(descriptor)", "null!", DataType.Nil.ToLuaDebuggerString()));
 					}
 
-					variables.Add(new Variable("(native object)", v.UserData.Object != null ? v.UserData.Object.ToString() : "(null)", null));
+					variables.Add(new Variable("(native object)", v.UserData.Object != null ? v.UserData.Object.GetType().Name : "(null)", null));
 					break;
 				case DataType.Thread:
 					variables.Add(new Variable("(coroutine state)", v.Coroutine.State.ToString(), null));
