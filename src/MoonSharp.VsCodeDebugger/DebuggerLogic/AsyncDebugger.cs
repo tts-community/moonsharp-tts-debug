@@ -256,8 +256,25 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				Client.OnException(ex);
 			}
 
-			PauseRequested = ErrorRegex.IsMatch(ex.Message);
+			if (!ErrorRegex.IsMatch(ex.Message))
+			{
+				return false;
+			}
+
+			lock (m_ActionQueue)
+			{
+				var nonExecutionActions = m_ActionQueue.Where(a => a.Action > DebuggerAction.ActionType.Run);
+				m_ActionQueue.Clear();
+
+				foreach (var action in nonExecutionActions)
+				{
+					m_ActionQueue.Enqueue(action);
+				}
+			}
+
+			PauseRequested = true;
 			return PauseRequested;
+
 		}
 
 		void IDebugger.Update(WatchType watchType, IEnumerable<WatchItem> items, int stackFrameIndex)
