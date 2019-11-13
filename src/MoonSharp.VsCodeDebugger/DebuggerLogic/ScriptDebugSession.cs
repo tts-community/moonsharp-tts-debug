@@ -168,15 +168,22 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				return;
 			}
 
-			lock (m_Lock)
+			try
 			{
-				var result = Debugger.Evaluate(expression, frameId) ?? DynValue.Nil;
+				lock (m_Lock)
+				{
+					var result = Debugger.Evaluate(expression, frameId) ?? DynValue.Nil;
 
-				m_Variables.Add(result);
+					m_Variables.Add(result);
 
-				SendResponse(response, new EvaluateResponseBody(result.ToDebugPrintString(), m_Variables.Count) {
-					type = result.Type.ToLuaDebuggerString()
-				});
+					SendResponse(response, new EvaluateResponseBody(result.ToDebugPrintString(), m_Variables.Count) {
+						type = result.Type.ToLuaDebuggerString()
+					});
+				}
+			}
+			catch (Exception e)
+			{
+				SendErrorResponse(response, 1105, $"error while evaluating '{expression}' (exception: {e.Message})");
 			}
 		}
 

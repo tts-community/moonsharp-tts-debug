@@ -145,7 +145,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			{
 				return Script.CreateDynamicExpression(code);
 			}
-			catch (Exception ex)
+			catch (ScriptRuntimeException ex)
 			{
 				return Script.CreateConstantDynamicExpression(code, DynValue.NewString(ex.Message));
 			}
