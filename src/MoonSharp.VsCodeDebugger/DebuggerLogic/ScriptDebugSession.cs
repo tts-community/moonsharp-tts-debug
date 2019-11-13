@@ -216,7 +216,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 		{
 			if (IsRuntimeExceptionCurrent())
 			{
-				SendResponse(response, new ExceptionInfoResponseBody("runtime", "Runtime exception", "userUnhandled", ExceptionDetails(m_RuntimeException)));
+				SendResponse(response, new ExceptionInfoResponseBody("runtime", m_RuntimeException.Message, "always", ExceptionDetails(m_RuntimeException)));
 			}
 			else
 			{
