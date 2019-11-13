@@ -177,6 +177,9 @@ namespace MoonSharp.Interpreter.Debugging
 		/// <returns></returns>
 		public string FormatLocation(Script script, bool forceClassicFormat = false)
 		{
+			if (this.SourceIdx < 0)
+				return "[dynamic]";
+
 			SourceCode sc = script.GetSourceCode(this.SourceIdx);
 
 			if (this.IsClrLocation)
