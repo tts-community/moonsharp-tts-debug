@@ -8,7 +8,7 @@ This is a fork of [MoonSharp](https://www.moonsharp.org/) the Lua interpreter ut
 
 Tabletop Simulator allows you to script your mods in Lua. There's even an official [TTS plugin for Atom](https://api.tabletopsimulator.com/atom/). *However*, there's no official way to __debug__ your workshop mods - if something goes wrong in your mod's Lua, there's usually a lot of trial and error trying to work out what is going wrong.
 
-However, the latest version of MoonSharp (over 2 years old) actually provides official support for debugging in [VSCode](https://code.visualstudio.com/) the functionality simply hasn't been included with Tabletop Simulator. What we've done here is built a drop-in replacement, for TTS' MoonSharp DLL, which comes with VSCode debugging support pre-enabled.
+However, the version of MoonSharp that ships with TTS does provide (limited) debugging capabilities, however the functionality has not been enabled within Tabletop Simulator. What we've done here is built a drop-in replacement, for TTS' MoonSharp DLL, which comes with VSCode debugging support pre-enabled.
 
 Additionally, Tabletop Simulator runs workshop mods in sandbox. This is actually a good practice as Berserk Games are protecting users from distributing harmful mods. However, being in a sandbox can make development a bit frustrating (e.g. the lack of the `debug` module). As such, this fork also disables the sandbox _for you_. You still won't be able to develop and distribute mods to end-users that aren't sandboxed; because to disable the sandbox you need this DLL running on your computer.
 
@@ -22,7 +22,7 @@ We provide releases (available above), however, if you have Mono installed you c
 msbuild /t:Restore src/MoonSharp.Interpreter/MoonSharp.Interpreter.csproj
 msbuild /p:Configuration=Release src/MoonSharp.Interpreter/MoonSharp.Interpreter.csproj
 ```
-(builds to `src/MoonSharp.Interpreter/bin/Release/net35/MoonSharp.Interpreter.dll`)
+(builds to `src/MoonSharp.Interpreter/bin/Release/net35/MoonsharpDef.dll`)
 
 Once you've either downloaded or built the DLL, it's simply a matter of copying the DLL over the version distributed with Tabletop Simulator. You may wish to backup the original file, however you can also retrieve the original by, in Steam, right clicking on TTS and chosing "Properties -> Updates > Verify Integrity of Game Files..."; which will cause the original DLL to be downloaded again.
 
@@ -48,7 +48,7 @@ Unfortunately, the setup process is a bit clunky.
 
 1. Download and install [VSCode](https://code.visualstudio.com/).
 
-2. Download the [latest release](https://github.com/tts-community/moonsharp/releases) of our enhanced MoonSharp VSCode extension and [install it](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix). If you have previously install the official MoonSharp plugin - please uninstall it first.
+2. Download the [latest release](https://github.com/tts-community/moonsharp/releases) of our enhanced MoonSharp VSCode extension and [install it](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix). If you have previously install the official MoonSharp plugin - please uninstall it first. Once installed, disable automatic updates for the plugin.
 
 2a. You _probably_ also want [EmmyLua](https://marketplace.visualstudio.com/items?itemName=tangzx.emmylua) and to configure the [".ttslua" extension to be treated as "lua"](https://stackoverflow.com/questions/29973619/how-to-make-vs-code-to-treat-other-file-extensions-as-certain-language) files.
 
