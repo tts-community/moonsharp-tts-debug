@@ -12,6 +12,7 @@
         <Title>MoonSharp.Interpreter</Title>
         <SignAssembly>true</SignAssembly>
         <PackageVersion>2.0.0</PackageVersion>
+        <AssemblyName>MoonsharpDef</AssemblyName>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)'=='Debug'">

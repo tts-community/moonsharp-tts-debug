@@ -329,29 +329,27 @@ namespace MoonSharp.Interpreter
 		/// <returns>
 		/// A DynValue containing the result of the processing of the loaded chunk.
 		/// </returns>
-		public DynValue DoString(string code, Table globalContext, string codeFriendlyName)
+		public DynValue DoString(string code, Table globalContext = null, string codeFriendlyName = null)
 		{
-			DynValue func = LoadString(code, globalContext, codeFriendlyName);
-			return Call(func);
-		}
-
-		public DynValue DoString(string code, Table globalContext = null)
-		{
-			string codeFriendlyName = null;
-
-			try
+			if (codeFriendlyName == null)
 			{
-				codeFriendlyName = TtsDebugger.OnDoString(this);
-				DynValue result = DoString(code, globalContext, codeFriendlyName);
-				return result;
-			}
-			finally
-			{
-				if (codeFriendlyName != null)
+				try
 				{
-					TtsDebugger.OnStringDone(this);
+					codeFriendlyName = TtsDebugger.OnDoString(this);
+					DynValue result = DoString(code, globalContext, codeFriendlyName);
+					return result;
+				}
+				finally
+				{
+					if (codeFriendlyName != null)
+					{
+						TtsDebugger.OnStringDone(this);
+					}
 				}
 			}
+
+			DynValue func = LoadString(code, globalContext, codeFriendlyName);
+			return Call(func);
 		}
 
 		/// <summary>
