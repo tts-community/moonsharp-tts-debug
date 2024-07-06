@@ -76,7 +76,8 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 
 			if (m_Debug.DebuggerAttached.IsPauseRequested() ||
-				(instr.SourceCodeRef != null && instr.SourceCodeRef.Breakpoint && isOnDifferentRef))
+				(instr.SourceCodeRef != null && instr.SourceCodeRef.Breakpoint && isOnDifferentRef && (
+					instr.SourceCodeRef.BreakpointCondition == null || instr.SourceCodeRef.BreakpointCondition.Evaluate().Boolean)))
 			{
 				m_Debug.DebuggerCurrentAction = DebuggerAction.ActionType.None;
 				m_Debug.DebuggerCurrentActionTarget = -1;
@@ -174,22 +175,38 @@ namespace MoonSharp.Interpreter.Execution.VM
 		private void ResetBreakPoints(DebuggerAction action)
 		{
 			SourceCode src = m_Script.GetSourceCode(action.SourceID);
-			ResetBreakPoints(src, new HashSet<int>(action.Lines));
+
+			var breakpointLines = new Dictionary<int, DynamicExpression>();
+
+			foreach (var line in action.Lines)
+			{
+				breakpointLines.Add(line, null);
+			}
+
+			ResetBreakPoints(src, breakpointLines);
 		}
 
-		internal HashSet<int> ResetBreakPoints(SourceCode src, HashSet<int> lines)
+		internal Dictionary<int, DynamicExpression> ResetBreakPoints(SourceCode src, Dictionary<int, DynamicExpression> lineBreakpoints)
 		{
-			HashSet<int> result = new HashSet<int>();
+			var result = new Dictionary<int, DynamicExpression>();
 
 			foreach (SourceRef srf in src.Refs)
 			{
 				if (srf.CannotBreakpoint)
 					continue;
 
-				srf.Breakpoint = lines.Contains(srf.FromLine);
+				if (lineBreakpoints.TryGetValue(srf.FromLine, out var condition))
+				{
+					srf.Breakpoint = true;
+					srf.BreakpointCondition = condition;
 
-				if (srf.Breakpoint)
-					result.Add(srf.FromLine);
+					result.Add(srf.FromLine, condition);
+				}
+				else
+				{
+					srf.Breakpoint = false;
+					srf.BreakpointCondition = null;
+				}
 			}
 
 			return result;

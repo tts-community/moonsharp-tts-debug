@@ -717,9 +717,17 @@ namespace MoonSharp.Interpreter.Execution.VM
 					Flags = flags,
 				});
 
-				var ret = fn.Callback.Invoke(new ScriptExecutionContext(this, fn.Callback, sref), args, isMethodCall: thisCall);
-				m_ValueStack.RemoveLast(argsCount + 1);
-				m_ValueStack.Push(ret);
+				try
+				{
+					var ret = fn.Callback.Invoke(new ScriptExecutionContext(this, fn.Callback, sref), args,
+						isMethodCall: thisCall);
+					m_ValueStack.RemoveLast(argsCount + 1);
+					m_ValueStack.Push(ret);
+				}
+				catch (Exception e)
+				{
+					throw e;
+				}
 
 				m_ExecutionStack.Pop();
 

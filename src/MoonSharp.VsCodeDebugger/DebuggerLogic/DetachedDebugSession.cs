@@ -26,9 +26,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response, new Capabilities(
 				true,
 				false,
-				false,
+				true,
 				true,
 				new object[0],
+				true,
 				true
 			));
 

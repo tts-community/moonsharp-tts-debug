@@ -412,7 +412,14 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <returns></returns>
 		public virtual string AsString(object obj)
 		{
-			return (obj != null) ? obj.ToString() : null;
+			try
+			{
+				return (obj != null) ? obj.ToString() : null;
+			}
+			catch (Exception e)
+			{
+				return obj.GetType().ToString();
+			}
 		}
 
 

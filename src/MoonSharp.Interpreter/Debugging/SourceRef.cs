@@ -41,6 +41,12 @@ namespace MoonSharp.Interpreter.Debugging
 		/// Gets a value indicating whether this instance is a breakpoint
 		/// </summary>
 		public bool Breakpoint;
+
+		/// <summary>
+		/// Gets a condition that must be met for execution to be halted at this breakpoint
+		/// </summary>
+		public DynamicExpression BreakpointCondition;
+
 		/// <summary>
 		/// Gets a value indicating whether this instance cannot be set as a breakpoint
 		/// </summary>

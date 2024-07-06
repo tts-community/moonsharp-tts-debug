@@ -186,29 +186,36 @@ namespace MoonSharp.Interpreter.Interop
 			object[] pars = base.BuildArgumentList(script, obj, context, args, out outParams);
 			object retv = null;
 
-			if (m_OptimizedFunc != null)
+			try
 			{
-				retv = m_OptimizedFunc(obj, pars);
-			}
-			else if (m_OptimizedAction != null)
-			{
-				m_OptimizedAction(obj, pars);
-				retv = DynValue.Void;
-			}
-			else if (m_IsAction)
-			{
-				MethodInfo.Invoke(obj, pars);
-				retv = DynValue.Void;
-			}
-			else
-			{
-				if (IsConstructor)
-					retv = ((ConstructorInfo)MethodInfo).Invoke(pars);
+				if (m_OptimizedFunc != null)
+				{
+					retv = m_OptimizedFunc(obj, pars);
+				}
+				else if (m_OptimizedAction != null)
+				{
+					m_OptimizedAction(obj, pars);
+					retv = DynValue.Void;
+				}
+				else if (m_IsAction)
+				{
+					MethodInfo.Invoke(obj, pars);
+					retv = DynValue.Void;
+				}
 				else
-					retv = MethodInfo.Invoke(obj, pars);
-			}
+				{
+					if (IsConstructor)
+						retv = ((ConstructorInfo) MethodInfo).Invoke(pars);
+					else
+						retv = MethodInfo.Invoke(obj, pars);
+				}
 
-			return BuildReturnValue(script, outParams, pars, retv);
+				return BuildReturnValue(script, outParams, pars, retv);
+			}
+			catch (Exception e)
+			{
+				throw e;
+			}
 		}
 
 		/// <summary>

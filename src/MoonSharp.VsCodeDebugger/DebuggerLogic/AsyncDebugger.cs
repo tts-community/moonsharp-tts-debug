@@ -94,6 +94,17 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			if (pauseRequested || ip != m_PrevInstructionPtr)
 			{
+				lock (m_ActionQueue)
+				{
+					var nonExecutionActions = m_ActionQueue.Where(a => a.Action > DebuggerAction.ActionType.Run);
+					m_ActionQueue.Clear();
+
+					foreach (var action in nonExecutionActions)
+					{
+						m_ActionQueue.Enqueue(action);
+					}
+				}
+
 				m_PrevInstructionPtr = ip;
 
 				lock (m_ClientLock)
@@ -104,7 +115,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			while (true)
 			{
-				if (Client == null)
+				if (Client == null || PauseRequested)
 				{
 					IsStopped = false;
 					return new DebuggerAction { Action = DebuggerAction.ActionType.Run };
@@ -116,6 +127,12 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					{
 						var action = m_ActionQueue.Dequeue();
 						IsStopped = action.Action != DebuggerAction.ActionType.Run;
+
+						if (!IsStopped)
+						{
+							m_PrevInstructionPtr = -1;
+						}
+
 						return action;
 					}
 				}

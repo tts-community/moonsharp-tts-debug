@@ -32,11 +32,11 @@ namespace MoonSharp.Interpreter.Debugging
 		/// Resets the break points for a given file. Supports only line-based breakpoints.
 		/// </summary>
 		/// <param name="src">The source.</param>
-		/// <param name="lines">The lines.</param>
+		/// <param name="breakpointLines">The breakpoint lines, each associated an optional breakpoint condition.</param>
 		/// <returns>The lines for which breakpoints have been set</returns>
-		public HashSet<int> ResetBreakPoints(SourceCode src, HashSet<int> lines)
+		public Dictionary<int, DynamicExpression> ResetBreakPoints(SourceCode src, Dictionary<int, DynamicExpression> breakpointLines)
 		{
-			return m_Processor.ResetBreakPoints(src, lines);
+			return m_Processor.ResetBreakPoints(src, breakpointLines);
 		}
 
 

@@ -1,6 +1,7 @@
 ﻿#if (!PCL) && ((!UNITY_5) || UNITY_STANDALONE)
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -79,9 +80,10 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			SendResponse(response, new Capabilities(
 				true,
 				false,
-				false,
+				true,
 				true,
 				new object[0],
+				true,
 				true
 			));
 
@@ -363,35 +365,67 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				return;
 			}
 
-			Table clientLines = args.Get("lines").Table;
+			var requestedBreakpoints = args.Get("breakpoints").Table;
 
-			var lin = new HashSet<int>(clientLines.Values.Select(jt => ConvertClientLineToDebugger(jt.ToObject<int>())).ToArray());
+			var pendingBreakpoints = new Dictionary<int, DynamicExpression>();
+			var breakpointFailures = new Dictionary<int, Breakpoint>();
 
-			var lin2 = Debugger.DebugService.ResetBreakPoints(src, lin);
-
-			var breakpoints = new List<Breakpoint>();
-			foreach (var l in lin)
+			foreach (var requestedBreakpoint in requestedBreakpoints.Values)
 			{
-				breakpoints.Add(new Breakpoint(lin2.Contains(l), l));
+				var breakpointTable = requestedBreakpoint.ToObject<Table>();
+				var line = breakpointTable.Get("line").ToObject<int>();
+				var condition = breakpointTable.Get("condition");
+
+				try
+				{
+					var conditionExpression = condition.IsNil()
+						? null
+						: src.OwnerScript.CreateDynamicExpression(condition.ToObject<string>());
+					pendingBreakpoints.Add(line, conditionExpression);
+				}
+				catch (Exception)
+				{
+					breakpointFailures.Add(line, new Breakpoint("Invalid breakpoint expression"));
+				}
 			}
 
-			response.SetBody(new SetBreakpointsResponseBody(breakpoints)); SendResponse(response);
+			var confirmedBreakpoints = Debugger.DebugService.ResetBreakPoints(src, pendingBreakpoints);
+			var breakpointResults = new List<Breakpoint>();
+
+			foreach (var requestedBreakpoint in requestedBreakpoints.Values)
+			{
+				var breakpointTable = requestedBreakpoint.ToObject<Table>();
+				var line = breakpointTable.Get("line").ToObject<int>();
+
+				if (confirmedBreakpoints.ContainsKey(line))
+				{
+					breakpointResults.Add(new Breakpoint(line));
+				}
+				else if (breakpointFailures.TryGetValue(line, out var failure))
+				{
+					breakpointResults.Add(failure);
+				}
+				else
+				{
+					breakpointResults.Add(new Breakpoint("Unable to set breakpoint at this location"));
+				}
+			}
+
+			response.SetBody(new SetBreakpointsResponseBody(breakpointResults)); SendResponse(response);
 		}
 
 		public override void StackTrace(Response response, Table args)
 		{
-			int maxLevels = getInt(args, "levels", 10);
-
-			var stackFrames = new List<StackFrame>();
-
 			var stack = Debugger.GetWatches(WatchType.CallStack);
-
 			var coroutine = Debugger.GetWatches(WatchType.Threads).LastOrDefault();
 
-			int level = 0;
-			int max = Math.Min(maxLevels - 3, stack.Count);
+			int startFrame = getInt(args, "startFrame", 0);
+			int maxLevels = getInt(args, "levels", stack.Count + 2);
 
-			while (level < max)
+			var stackFrames = new List<StackFrame>();
+			int stackMax = Math.Min(startFrame + maxLevels, stack.Count);
+
+			for (int level = startFrame; level < stackMax; level++)
 			{
 				WatchItem frame = stack[level];
 
@@ -412,19 +446,20 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					ConvertDebuggerLineToClient(sourceRef.FromLine), sourceRef.FromChar,
 					ConvertDebuggerLineToClient(sourceRef.ToLine), sourceRef.ToChar,
 					stackHint));
-
-				level++;
 			}
 
-			if (stack.Count > maxLevels - 3)
-				stackFrames.Add(new StackFrame(level++, "(...)", null, 0));
+			if (stackFrames.Count < maxLevels)
+			{
+				if (coroutine != null)
+					stackFrames.Add(new StackFrame(stack.Count, "(" + coroutine.Name + ")", null, 0, 0, 0, 0, SDK.Source.HINT_DEEMPHASIZE));
+				else
+					stackFrames.Add(new StackFrame(stack.Count, "(main coroutine)", null, 0, 0, 0, 0, SDK.Source.HINT_DEEMPHASIZE));
 
-			if (coroutine != null)
-				stackFrames.Add(new StackFrame(level++, "(" + coroutine.Name + ")", null, 0));
-			else
-				stackFrames.Add(new StackFrame(level++, "(main coroutine)", null, 0));
-
-			stackFrames.Add(new StackFrame(level++, "(native)", null, 0));
+				if (stackFrames.Count < maxLevels)
+				{
+					stackFrames.Add(new StackFrame(stack.Count + 1, "(native)", null, 0, 0, 0, 0, SDK.Source.HINT_DEEMPHASIZE));
+				}
+			}
 
 			SendResponse(response, new StackTraceResponseBody(stackFrames, stack.Count + 2));
 		}
@@ -473,16 +508,13 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 				int frameId = ((variablesReference & VARIABLES_REFERENCE_FRAME_MASK) >> VARIABLES_REFERENCE_FRAME_OFFSET) - 1;
 				int index = variablesReference & VARIABLES_REFERENCE_INDEX_MASK;
 
+				var variables = new List<Variable>();
+
 				if (scope == SCOPE_LOCAL || scope == SCOPE_CLOSURE)
 				{
 					var scopeState = scope == SCOPE_LOCAL ? m_Local : m_Closure;
 
-					if (frameId == scopeState.CurrentStackFrame)
-					{
-						var watchType = scope == SCOPE_LOCAL ? WatchType.Locals : WatchType.Closure;
-						SendScopeVariablesResponse(watchType, response);
-					}
-					else
+					if (frameId != scopeState.CurrentStackFrame)
 					{
 						if (scopeState.PendingResponse != null)
 						{
@@ -513,14 +545,20 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 								SendResponse(response, new VariablesResponseBody(new List<Variable>()));
 							}
 						}
+
+						return;
 					}
 
-					return;
+					if (index == 0)
+					{
+						var watchType = scope == SCOPE_LOCAL ? WatchType.Locals : WatchType.Closure;
+						SendScopeVariablesResponse(frameId, watchType, response);
+						return;
+					}
+
+					VariableInspector.InspectVariable(m_Variables[index - 1], variables, m_Variables);
 				}
-
-				var variables = new List<Variable>();
-
-				if (scope == SCOPE_SELF)
+				else if (scope == SCOPE_SELF)
 				{
 					var self = Debugger.Evaluate("self", m_CurrentStackFrame);
 					VariableInspector.InspectVariable(self, variables, m_Variables);
@@ -546,20 +584,16 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			}
 		}
 
-		void SendScopeVariablesResponse(WatchType watchType, Response response)
+		void SendScopeVariablesResponse(int frameId, WatchType watchType, Response response)
 		{
+			var scope = watchType == WatchType.Closure ? SCOPE_CLOSURE : SCOPE_LOCAL;
 			var variables = new List<Variable>();
 
 			foreach (var w in Debugger.GetWatches(watchType))
 			{
 				DynValue value = w.Value ?? DynValue.Void;
-				var index = value.Type == DataType.Table ? m_Variables.Count + 1 : 0;
-
-				if (index > 0)
-				{
-					m_Variables.Add(value);
-				}
-
+				m_Variables.Add(value);
+				var index = m_Variables.Count | (scope << VARIABLES_REFERENCE_SCOPE_OFFSET) |  ((frameId + 1) << VARIABLES_REFERENCE_FRAME_OFFSET);
 				variables.Add(new Variable(w.Name, value.ToDebugPrintString(), value.Type.ToLuaDebuggerString(), index));
 			}
 
@@ -638,7 +672,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 					if (m_CurrentStackFrame == m_PendingStackFrame && scopeState.PendingResponse != null)
 					{
-						SendScopeVariablesResponse(watchType, scopeState.PendingResponse);
+						SendScopeVariablesResponse(m_CurrentStackFrame, watchType, scopeState.PendingResponse);
 						scopeState.PendingResponse = null;
 					}
 				}

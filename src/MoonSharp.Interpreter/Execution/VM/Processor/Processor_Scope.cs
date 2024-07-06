@@ -20,6 +20,11 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		public DynValue GetGenericSymbol(SymbolRef symref, int stackFrameIndex = -1)
 		{
+			if (m_CoroutinesStack != null && m_CoroutinesStack.Count > 0)
+			{
+				return m_CoroutinesStack[m_CoroutinesStack.Count - 1].GetGenericSymbol(symref, stackFrameIndex);
+			}
+
 			switch (symref.i_Type)
 			{
 				case  SymbolRefType.DefaultEnv:
@@ -114,6 +119,11 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		public SymbolRef FindSymbolByName(string name, int stackFrameIndex = -1)
 		{
+			if (m_CoroutinesStack != null && m_CoroutinesStack.Count > 0)
+			{
+				return m_CoroutinesStack[m_CoroutinesStack.Count - 1].FindSymbolByName(name, stackFrameIndex);
+			}
+
 			if (m_ExecutionStack.Count > 0)
 			{
 				var stackframe = GetStackNonClrFunction(stackFrameIndex);

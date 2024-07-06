@@ -160,11 +160,21 @@ namespace MoonSharp.VsCodeDebugger.SDK
 	{
 		public bool verified { get; }
 		public int line { get; }
+		public string message { get; }
+		public string reason { get; }
 
-		public Breakpoint(bool verified, int line)
+		public Breakpoint(int line)
 		{
-			this.verified = verified;
+			this.verified = true;
 			this.line = line;
+		}
+
+		public Breakpoint(string failureMessage)
+		{
+			this.verified = false;
+			this.line = line;
+			this.message = failureMessage;
+			this.reason = "failed";
 		}
 	}
 
@@ -254,8 +264,9 @@ namespace MoonSharp.VsCodeDebugger.SDK
 		public bool supportsEvaluateForHovers { get; }
 		public object[] exceptionBreakpointFilters { get; }
 		public bool supportsExceptionInfoRequest { get; }
+		public bool supportsDelayedStackTraceLoading { get; }
 
-		public Capabilities(bool supportsConfigurationDoneRequest, bool supportsFunctionBreakpoints, bool supportsConditionalBreakpoints, bool supportsEvaluateForHovers, object[] exceptionBreakpointFilters, bool supportsExceptionInfoRequest)
+		public Capabilities(bool supportsConfigurationDoneRequest, bool supportsFunctionBreakpoints, bool supportsConditionalBreakpoints, bool supportsEvaluateForHovers, object[] exceptionBreakpointFilters, bool supportsExceptionInfoRequest, bool supportsDelayedStackTraceLoading)
 		{
 			this.supportsConfigurationDoneRequest = supportsConfigurationDoneRequest;
 			this.supportsFunctionBreakpoints = supportsFunctionBreakpoints;
@@ -263,6 +274,7 @@ namespace MoonSharp.VsCodeDebugger.SDK
 			this.supportsEvaluateForHovers = supportsEvaluateForHovers;
 			this.exceptionBreakpointFilters = exceptionBreakpointFilters;
 			this.supportsExceptionInfoRequest = supportsExceptionInfoRequest;
+			this.supportsDelayedStackTraceLoading = supportsDelayedStackTraceLoading;
 		}
 	}
 
