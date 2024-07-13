@@ -48,7 +48,7 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// The current closure context
 		/// </summary>
-		internal ClosureContext ClosureContext { get; private set; }
+		public ClosureContext ClosureContext { get; private set; }
 
 
 		/// <summary>

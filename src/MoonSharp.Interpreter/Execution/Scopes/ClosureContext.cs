@@ -6,7 +6,7 @@ namespace MoonSharp.Interpreter.Execution
 	/// <summary>
 	/// The scope of a closure (container of upvalues)
 	/// </summary>
-	internal class ClosureContext : List<DynValue>
+	public class ClosureContext : List<DynValue>
 	{
 		/// <summary>
 		/// Gets the symbols.

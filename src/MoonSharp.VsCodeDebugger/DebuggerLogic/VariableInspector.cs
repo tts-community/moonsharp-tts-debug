@@ -2,12 +2,34 @@
 
 using System.Collections.Generic;
 using MoonSharp.Interpreter;
+using MoonSharp.Interpreter.Execution;
 using MoonSharp.VsCodeDebugger.SDK;
 
 namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 {
 	internal static class VariableInspector
 	{
+		private static void InspectUpvalues(ClosureContext context, List<Variable> variables, List<object> structuredVariables)
+		{
+			var count = context.Count;
+
+			for (var i = 0; i < count; i++)
+			{
+				var symbol = context.Symbols[i];
+				var variable = context[i];
+
+				var index = variable.Type == DataType.Table || variable.Type == DataType.Function ? structuredVariables.Count + 1 : 0;
+
+				if (index > 0)
+				{
+					structuredVariables.Add(variable);
+				}
+
+				var key = symbol;
+				variables.Add(new Variable(key, variable.ToDebugPrintString(), variable.Type.ToLuaDebuggerString(), index));
+			}
+		}
+
 		private static void InspectDynValue(DynValue v, List<Variable> variables, List<object> structuredVariables)
 		{
 			if (v.Type != DataType.Table)
@@ -26,9 +48,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 					}
 					break;
 				case DataType.Function:
-					variables.Add(new Variable("(address)", v.Function.EntryPointByteCodeLocation.ToString("X8"), null));
-					variables.Add(new Variable("(upvalues)", v.Function.GetUpvaluesCount().ToString(), null));
-					variables.Add(new Variable("(upvalues type)", v.Function.GetUpvaluesType().ToString(), null));
+					InspectFunction(v.Function, variables, structuredVariables);
 					break;
 				case DataType.Table:
 					InspectTable(v.Table, variables, structuredVariables);
@@ -65,6 +85,24 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 			}
 		}
 
+		private static void InspectFunction(Closure function, List<Variable> variables, List<object> structuredVariables)
+		{
+			variables.Add(new Variable("(address)", function.EntryPointByteCodeLocation.ToString("X8"), null));
+
+			if (function.GetUpvaluesType() == Closure.UpvaluesType.Closure)
+			{
+				var variableIndex = structuredVariables.Count + 1;
+				structuredVariables.Add(function.ClosureContext);
+				variables.Add(new Variable("(upvalues)", function.GetUpvaluesCount().ToString(), "closure", variableIndex));
+			}
+			else
+			{
+				variables.Add(new Variable("(upvalues)", function.GetUpvaluesCount().ToString(), null));
+			}
+
+			variables.Add(new Variable("(upvalues type)", function.GetUpvaluesType().ToString(), null));
+		}
+
 		private static void InspectTable(Table table, List<Variable> variables, List<object> structuredVariables)
 		{
 			if (table.MetaTable != null)
@@ -75,7 +113,7 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 			foreach (TablePair p in table.Pairs)
 			{
-				var index = p.Value.Type == DataType.Table ? structuredVariables.Count + 1 : 0;
+				var index = p.Value.Type == DataType.Table || p.Value.Type == DataType.Function ? structuredVariables.Count + 1 : 0;
 
 				if (index > 0)
 				{
@@ -89,7 +127,11 @@ namespace MoonSharp.VsCodeDebugger.DebuggerLogic
 
 		internal static void InspectVariable(object v, List<Variable> variables, List<object> structuredVariables)
 		{
-			if (v is DynValue dynValue)
+			if (v is ClosureContext closureContext)
+			{
+				InspectUpvalues(closureContext, variables, structuredVariables);
+			}
+			else if (v is DynValue dynValue)
 			{
 				InspectDynValue(dynValue, variables, structuredVariables);
 			}
